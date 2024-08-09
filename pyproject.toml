@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "pyobsidian"
+version = "0.1.0"
+description = "Um gerenciador para o Obsidian com vários recursos para o dia a dia"
+authors = ["Felipe Pimentel <fpimentel88@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12.3"
+click = "^8.0.0"
+markdown = "^3.3.4"
+python-frontmatter = "^1.0.0"
+watchdog = "^2.1.6"
+python-dotenv = "^1.0.0"
+weasyprint = "^52.5"
+
+markdown2 = "^2.5.0"
+textblob = "^0.18.0.post0"
+matplotlib = "^3.9.1.post1"
+[tool.poetry.dev-dependencies]
+pytest = "^6.2.5"
+black = "^21.9b0"
+flake8 = "^4.0.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+pyobsidian = "pyobsidian.main:cli"
