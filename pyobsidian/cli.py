@@ -4,7 +4,53 @@ import click
 def cli():
     pass
 
-# ... (keep all existing commands)
+@cli.command()
+def backup():
+    from .obsidian_helper import load_config
+    from .scripts.backup_and_export import backup_vault
+    from .scripts.notify import notify
+    
+    config = load_config()
+    backup_file = backup_vault(config)
+    
+    click.echo(f"Backup created: {backup_file}")
+    notify("Backup", f"Backup file created: {backup_file}")
+
+@cli.command()
+def export_html():
+    from .obsidian_helper import load_config
+    from .scripts.backup_and_export import export_notes_to_html
+    from .scripts.notify import notify
+    
+    config = load_config()
+    export_dir = export_notes_to_html(config)
+    
+    click.echo(f"Notes exported to HTML: {export_dir}")
+    notify("HTML Export", f"Notes exported to: {export_dir}")
+
+@cli.command()
+def analyze_content():
+    from .obsidian_helper import load_config
+    from .scripts.analyze_content import analyze_content
+    from .scripts.notify import notify
+    
+    config = load_config()
+    analysis_file = analyze_content(config)
+    
+    click.echo(f"Content analysis generated: {analysis_file}")
+    notify("Content Analysis", f"Analysis file created: {analysis_file}")
+
+@cli.command()
+def archive_old():
+    from .obsidian_helper import load_config
+    from .scripts.archive_old_notes import archive_old_notes
+    from .scripts.notify import notify
+    
+    config = load_config()
+    archived_notes = archive_old_notes(config)
+    
+    click.echo(f"Archived {len(archived_notes)} old notes")
+    notify("Note Archiving", f"{len(archived_notes)} notes archived")
 
 @cli.command()
 def manage_tags():
