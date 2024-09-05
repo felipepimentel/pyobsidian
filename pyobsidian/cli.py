@@ -1,4 +1,17 @@
 import click
+from .scripts import ai_assistant
+from .scripts import advanced_visualizations
+from .scripts import cloud_sync
+from .scripts import smart_tags
+from .scripts import note_recommender
+from .scripts import spaced_repetition
+from .scripts import quote_extractor
+from .scripts import productivity_analysis
+from .scripts import knowledge_graph
+from .scripts import realtime_collaboration
+from .scripts import ai_insights
+from .plugin_system import PluginSystem
+from .web_interface import run_web_interface
 
 @click.group()
 def cli():
@@ -263,6 +276,139 @@ def process_voice_notes():
     
     click.echo(f"Processed {len(processed_notes)} voice notes")
     notify("Voice Notes", f"{len(processed_notes)} voice notes processed")
+
+@cli.command()
+@click.argument('note_path')
+def enhance_note(note_path):
+    """Enhance a note using AI."""
+    enhanced_note = ai_assistant.enhance_note(note_path)
+    click.echo(f"Note enhanced: {enhanced_note}")
+
+@cli.command()
+@click.argument('topic')
+def generate_ideas(topic):
+    """Generate note ideas on a topic using AI."""
+    ideas = ai_assistant.generate_note_ideas(topic)
+    click.echo(f"Ideas for {topic}:\n{ideas}")
+
+@cli.command()
+def visualize_tags():
+    """Visualize tag evolution over time."""
+    config = load_config()
+    output_path = advanced_visualizations.visualize_tag_evolution(config)
+    click.echo(f"Tag evolution visualization saved to: {output_path}")
+
+@cli.command()
+def sync_dropbox():
+    """Sync vault to Dropbox."""
+    config = load_config()
+    result = cloud_sync.sync_to_dropbox(config)
+    click.echo(result)
+
+@cli.command()
+def apply_smart_tags():
+    """Apply smart tags to all notes based on content."""
+    config = load_config()
+    result = smart_tags.apply_smart_tags(config)
+    click.echo(result)
+
+@cli.command()
+@click.argument('note_path')
+@click.option('--num', default=5, help='Number of recommendations')
+def recommend_related(note_path, num):
+    """Recommend related notes based on content similarity."""
+    config = load_config()
+    related_notes = note_recommender.get_related_notes(config, note_path, num)
+    click.echo(f"Notes related to {note_path}:")
+    for note in related_notes:
+        click.echo(note)
+
+@cli.command()
+def visualize_note_length():
+    """Visualize note length distribution over time."""
+    config = load_config()
+    output_path = advanced_visualizations.visualize_note_length_distribution(config)
+    click.echo(f"Note length distribution visualization saved to: {output_path}")
+
+@cli.command()
+def review_notes():
+    """Get notes for review based on spaced repetition."""
+    config = load_config()
+    notes_to_review = spaced_repetition.update_review_dates(config)
+    click.echo(f"Notes to review today: {len(notes_to_review)}")
+    for note in notes_to_review:
+        click.echo(note)
+
+@cli.command()
+def extract_quotes():
+    """Extract and summarize quotes from all notes."""
+    config = load_config()
+    summary_path = quote_extractor.generate_quote_summary(config)
+    click.echo(f"Quote summary generated: {summary_path}")
+
+@cli.command()
+@click.option('--days', default=30, help='Number of days to analyze')
+def analyze_productivity(days):
+    """Analyze productivity based on note modifications."""
+    config = load_config()
+    output_path = productivity_analysis.analyze_productivity(config, days)
+    click.echo(f"Productivity analysis generated: {output_path}")
+
+@cli.command()
+def generate_knowledge_graph():
+    """Generate a knowledge graph based on note connections."""
+    config = load_config()
+    graph_path = knowledge_graph.generate_knowledge_graph(config)
+    click.echo(f"Knowledge graph generated: {graph_path}")
+
+@cli.command()
+def analyze_vault():
+    """Analyze the entire vault using AI."""
+    config = load_config()
+    analysis_path = ai_assistant.analyze_vault(config)
+    click.echo(f"Vault analysis generated: {analysis_path}")
+
+@cli.command()
+def list_plugins():
+    """List all available plugins."""
+    config = load_config()
+    plugin_system = PluginSystem(config['plugin_dir'])
+    plugin_system.load_plugins()
+    plugins = plugin_system.list_plugins()
+    click.echo("Available plugins:")
+    for plugin in plugins:
+        click.echo(f"- {plugin}")
+
+@cli.command()
+@click.argument('plugin_name')
+@click.argument('args', nargs=-1)
+def run_plugin(plugin_name, args):
+    """Run a specific plugin."""
+    config = load_config()
+    plugin_system = PluginSystem(config['plugin_dir'])
+    plugin_system.load_plugins()
+    result = plugin_system.execute_plugin(plugin_name, *args)
+    click.echo(f"Plugin {plugin_name} executed. Result: {result}")
+
+@cli.command()
+def start_web_interface():
+    """Start the web interface."""
+    run_web_interface()
+
+@cli.command()
+def start_collaboration_server():
+    """Start the real-time collaboration server."""
+    config = load_config()
+    collaboration = realtime_collaboration.RealtimeCollaboration(config)
+    click.echo("Starting real-time collaboration server...")
+    collaboration.start_server()
+
+@cli.command()
+def generate_ai_insights():
+    """Generate AI insights based on the entire vault content."""
+    config = load_config()
+    insight_path = ai_insights.generate_ai_insights(config)
+    click.echo(f"AI insights generated: {insight_path}")
 
 if __name__ == "__main__":
     cli()
