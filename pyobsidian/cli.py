@@ -1,17 +1,7 @@
 import click
-from .scripts import ai_assistant
-from .scripts import advanced_visualizations
-from .scripts import cloud_sync
-from .scripts import smart_tags
-from .scripts import note_recommender
-from .scripts import spaced_repetition
-from .scripts import quote_extractor
-from .scripts import productivity_analysis
-from .scripts import knowledge_graph
-from .scripts import realtime_collaboration
-from .scripts import ai_insights
 from .plugin_system import PluginSystem
 from .web_interface import run_web_interface
+from .obsidian_helper import load_config
 
 @click.group()
 def cli():
@@ -19,7 +9,6 @@ def cli():
 
 @cli.command()
 def backup():
-    from .obsidian_helper import load_config
     from .scripts.backup_and_export import backup_vault
     from .scripts.notify import notify
     
@@ -281,6 +270,7 @@ def process_voice_notes():
 @click.argument('note_path')
 def enhance_note(note_path):
     """Enhance a note using AI."""
+    from .scripts import ai_assistant
     enhanced_note = ai_assistant.enhance_note(note_path)
     click.echo(f"Note enhanced: {enhanced_note}")
 
@@ -288,12 +278,14 @@ def enhance_note(note_path):
 @click.argument('topic')
 def generate_ideas(topic):
     """Generate note ideas on a topic using AI."""
+    from .scripts import ai_assistant
     ideas = ai_assistant.generate_note_ideas(topic)
     click.echo(f"Ideas for {topic}:\n{ideas}")
 
 @cli.command()
 def visualize_tags():
     """Visualize tag evolution over time."""
+    from .scripts import advanced_visualizations
     config = load_config()
     output_path = advanced_visualizations.visualize_tag_evolution(config)
     click.echo(f"Tag evolution visualization saved to: {output_path}")
@@ -301,6 +293,7 @@ def visualize_tags():
 @cli.command()
 def sync_dropbox():
     """Sync vault to Dropbox."""
+    from .scripts import cloud_sync
     config = load_config()
     result = cloud_sync.sync_to_dropbox(config)
     click.echo(result)
@@ -308,6 +301,7 @@ def sync_dropbox():
 @cli.command()
 def apply_smart_tags():
     """Apply smart tags to all notes based on content."""
+    from .scripts import smart_tags
     config = load_config()
     result = smart_tags.apply_smart_tags(config)
     click.echo(result)
@@ -317,6 +311,7 @@ def apply_smart_tags():
 @click.option('--num', default=5, help='Number of recommendations')
 def recommend_related(note_path, num):
     """Recommend related notes based on content similarity."""
+    from .scripts import note_recommender
     config = load_config()
     related_notes = note_recommender.get_related_notes(config, note_path, num)
     click.echo(f"Notes related to {note_path}:")
@@ -326,6 +321,7 @@ def recommend_related(note_path, num):
 @cli.command()
 def visualize_note_length():
     """Visualize note length distribution over time."""
+    from .scripts import advanced_visualizations
     config = load_config()
     output_path = advanced_visualizations.visualize_note_length_distribution(config)
     click.echo(f"Note length distribution visualization saved to: {output_path}")
@@ -333,6 +329,7 @@ def visualize_note_length():
 @cli.command()
 def review_notes():
     """Get notes for review based on spaced repetition."""
+    from .scripts import spaced_repetition
     config = load_config()
     notes_to_review = spaced_repetition.update_review_dates(config)
     click.echo(f"Notes to review today: {len(notes_to_review)}")
@@ -342,6 +339,7 @@ def review_notes():
 @cli.command()
 def extract_quotes():
     """Extract and summarize quotes from all notes."""
+    from .scripts import quote_extractor
     config = load_config()
     summary_path = quote_extractor.generate_quote_summary(config)
     click.echo(f"Quote summary generated: {summary_path}")
@@ -350,6 +348,7 @@ def extract_quotes():
 @click.option('--days', default=30, help='Number of days to analyze')
 def analyze_productivity(days):
     """Analyze productivity based on note modifications."""
+    from .scripts import productivity_analysis
     config = load_config()
     output_path = productivity_analysis.analyze_productivity(config, days)
     click.echo(f"Productivity analysis generated: {output_path}")
@@ -357,6 +356,7 @@ def analyze_productivity(days):
 @cli.command()
 def generate_knowledge_graph():
     """Generate a knowledge graph based on note connections."""
+    from .scripts import knowledge_graph
     config = load_config()
     graph_path = knowledge_graph.generate_knowledge_graph(config)
     click.echo(f"Knowledge graph generated: {graph_path}")
@@ -364,6 +364,7 @@ def generate_knowledge_graph():
 @cli.command()
 def analyze_vault():
     """Analyze the entire vault using AI."""
+    from .scripts import ai_assistant
     config = load_config()
     analysis_path = ai_assistant.analyze_vault(config)
     click.echo(f"Vault analysis generated: {analysis_path}")
@@ -398,6 +399,7 @@ def start_web_interface():
 @cli.command()
 def start_collaboration_server():
     """Start the real-time collaboration server."""
+    from .scripts import realtime_collaboration
     config = load_config()
     collaboration = realtime_collaboration.RealtimeCollaboration(config)
     click.echo("Starting real-time collaboration server...")
@@ -406,6 +408,7 @@ def start_collaboration_server():
 @cli.command()
 def generate_ai_insights():
     """Generate AI insights based on the entire vault content."""
+    from .scripts import ai_insights
     config = load_config()
     insight_path = ai_insights.generate_ai_insights(config)
     click.echo(f"AI insights generated: {insight_path}")
