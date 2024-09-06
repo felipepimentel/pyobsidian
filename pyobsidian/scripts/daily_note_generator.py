@@ -1,9 +1,9 @@
-from ..obsidian_helper import write_to_file
+from ..obsidian_helper import load_config, write_to_file
 import os
 from datetime import datetime
 
 def generate_daily_note(config):
-    vault_path = config['vault_path']
+    vault_path = config['obsidian']['vault_path']
     daily_notes_folder = os.path.join(vault_path, 'Daily Notes')
     
     if not os.path.exists(daily_notes_folder):
@@ -28,3 +28,8 @@ def generate_daily_note(config):
     
     write_to_file(file_path, content)
     return file_path
+
+if __name__ == "__main__":
+    config = load_config()
+    daily_note = generate_daily_note(config)
+    print(f"Daily note generated: {daily_note}")

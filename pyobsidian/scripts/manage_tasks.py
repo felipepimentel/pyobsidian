@@ -1,8 +1,8 @@
+from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 from collections import defaultdict
 import os
 from datetime import datetime
 import re
-from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 
 def manage_tasks(config):
     vault_path = config['obsidian']['vault_path']
@@ -23,8 +23,9 @@ def manage_tasks(config):
 
     task_summary_path = os.path.join(tasks_folder, f'tasks-summary-{datetime.now().strftime("%Y-%m-%d")}.md')
     write_to_file(task_summary_path, task_summary)
+    return task_summary_path
 
 if __name__ == "__main__":
     config = load_config()
-    manage_tasks(config)
-    print("Tasks summarized successfully.")
+    task_summary_path = manage_tasks(config)
+    print(f"Tasks summarized successfully. Summary file: {task_summary_path}")

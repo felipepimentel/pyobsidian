@@ -1,7 +1,7 @@
+from ..obsidian_helper import load_config, get_all_files
 import os
 import shutil
 from datetime import datetime
-from ..obsidian_helper import load_config, get_all_files
 
 def incremental_backup(config):
     vault_path = config['obsidian']['vault_path']
@@ -31,9 +31,9 @@ def incremental_backup(config):
     with open(last_backup_file, 'w') as file:
         file.write(current_time.strftime('%Y-%m-%d %H:%M:%S'))
 
-    print(f"Incremental backup completed successfully. Backup folder: {current_backup_folder}")        
+    return current_backup_folder
 
 if __name__ == "__main__":
     config = load_config()
-    incremental_backup(config)
-    print("Incremental backup completed successfully.")
+    backup_folder = incremental_backup(config)
+    print(f"Incremental backup completed successfully. Backup folder: {backup_folder}")

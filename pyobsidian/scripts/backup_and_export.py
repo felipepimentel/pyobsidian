@@ -1,20 +1,17 @@
+from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 import os
 import shutil
 from datetime import datetime
-from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 
-def backup_vault():
-    config = load_config()
+def backup_vault(config):
     vault_path = config['obsidian']['vault_path']
-    backup_path = os.path.join(config['obsidian']['backup_path'], f'backup-{datetime.now().strftime('%Y-%m-%d-%H%M%S')}')
+    backup_path = os.path.join(config['obsidian']['backup_path'], f'backup-{datetime.now().strftime("%Y-%m-%d-%H%M%S")}')
     shutil.copytree(vault_path, backup_path)
     print(f"Vault backed up to {backup_path}")
+    return backup_path
 
 def export_notes_to_html(config):
-    vault_path = config.get('obsidian', {}).get('vault_path')
-    if not vault_path:
-        raise ValueError("Vault path not found in configuration")
-    
+    vault_path = config['obsidian']['vault_path']
     export_path = os.path.join(vault_path, 'Exports', f'export-{datetime.now().strftime("%Y-%m-%d-%H%M%S")}')
     os.makedirs(export_path, exist_ok=True)
 
@@ -34,5 +31,7 @@ def markdown_to_html(markdown_text):
 
 if __name__ == "__main__":
     config = load_config()
-    backup_vault(config)
-    export_notes_to_html(config)
+    backup_path = backup_vault(config)
+    export_path = export_notes_to_html(config)
+    print(f"Backup created at: {backup_path}")
+    print(f"Notes exported to: {export_path}")

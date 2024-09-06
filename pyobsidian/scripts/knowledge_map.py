@@ -1,4 +1,4 @@
-from ..obsidian_helper import get_all_files, get_file_content, write_to_file
+from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 import os
 import re
 import networkx as nx
@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from collections import Counter
 
 def create_knowledge_map(config):
-    vault_path = config['vault_path']
+    vault_path = config['obsidian']['vault_path']
     map_file = os.path.join(vault_path, 'knowledge_map.png')
     
     G = nx.Graph()
@@ -43,3 +43,8 @@ def create_knowledge_map(config):
     plt.close()
     
     return map_file
+
+if __name__ == "__main__":
+    config = load_config()
+    knowledge_map = create_knowledge_map(config)
+    print(f"Knowledge map generated: {knowledge_map}")

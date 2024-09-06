@@ -1,8 +1,8 @@
-from ..obsidian_helper import get_all_files, get_file_content, write_to_file
+from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 import os
 
 def generate_index(config):
-    vault_path = config['vault_path']
+    vault_path = config['obsidian']['vault_path']
     index_file = os.path.join(vault_path, 'index.md')
     
     index_content = "# Notes Index\n\n"
@@ -23,3 +23,8 @@ def generate_index(config):
     
     write_to_file(index_file, index_content)
     return index_file
+
+if __name__ == "__main__":
+    config = load_config()
+    index_file = generate_index(config)
+    print(f"Index generated: {index_file}")

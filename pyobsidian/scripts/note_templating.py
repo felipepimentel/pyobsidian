@@ -1,9 +1,8 @@
-from ..obsidian_helper import write_to_file
+from ..obsidian_helper import load_config, write_to_file
 import os
-import yaml
 
 def create_note_from_template(config, template_name, note_name):
-    vault_path = config['vault_path']
+    vault_path = config['obsidian']['vault_path']
     templates_folder = os.path.join(vault_path, 'Templates')
     template_path = os.path.join(templates_folder, f"{template_name}.md")
     
@@ -27,10 +26,19 @@ def create_note_from_template(config, template_name, note_name):
     return new_note_path
 
 def list_templates(config):
-    vault_path = config['vault_path']
+    vault_path = config['obsidian']['vault_path']
     templates_folder = os.path.join(vault_path, 'Templates')
     
     if not os.path.exists(templates_folder):
         return []
     
     return [os.path.splitext(f)[0] for f in os.listdir(templates_folder) if f.endswith('.md')]
+
+if __name__ == "__main__":
+    config = load_config()
+    print("Available templates:")
+    for template in list_templates(config):
+        print(template)
+    
+    new_note = create_note_from_template(config, "default", "New Note")
+    print(f"New note created: {new_note}")

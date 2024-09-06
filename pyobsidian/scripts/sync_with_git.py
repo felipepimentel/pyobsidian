@@ -1,7 +1,7 @@
+from ..obsidian_helper import load_config
 import os
 import subprocess
 from datetime import datetime
-from ..obsidian_helper import load_config
 
 def sync_with_git(config):
     vault_path = config['obsidian']['vault_path']

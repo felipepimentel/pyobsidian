@@ -1,10 +1,10 @@
-from ..obsidian_helper import get_all_files, get_file_content, write_to_file
+from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 import os
 import re
 from collections import defaultdict
 
 def manage_tags(config):
-    vault_path = config['vault_path']
+    vault_path = config['obsidian']['vault_path']
     tag_file = os.path.join(vault_path, 'tag_summary.md')
     
     tag_dict = defaultdict(list)
@@ -27,3 +27,8 @@ def manage_tags(config):
     
     write_to_file(tag_file, tag_content)
     return tag_file
+
+if __name__ == "__main__":
+    config = load_config()
+    tag_file = manage_tags(config)
+    print(f"Tag summary generated: {tag_file}")

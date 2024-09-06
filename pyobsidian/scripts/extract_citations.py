@@ -1,9 +1,9 @@
-from ..obsidian_helper import get_all_files, get_file_content, write_to_file
+from ..obsidian_helper import load_config, get_all_files, get_file_content, write_to_file
 import os
 import re
 
 def extract_citations(config):
-    vault_path = config['vault_path']
+    vault_path = config['obsidian']['vault_path']
     citations_file = os.path.join(vault_path, 'citations.md')
     
     citations_content = "# Extracted Citations\n\n"
@@ -28,3 +28,8 @@ def extract_citations(config):
     
     write_to_file(citations_file, citations_content)
     return citations_file
+
+if __name__ == "__main__":
+    config = load_config()
+    citations_file = extract_citations(config)
+    print(f"Citations extracted to: {citations_file}")
