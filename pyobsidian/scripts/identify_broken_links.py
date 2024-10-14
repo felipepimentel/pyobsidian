@@ -1,7 +1,7 @@
 import os
 import re
 from collections import defaultdict
-from ..obsidian_helper import load_config, get_all_files, get_file_content
+from ..obsidian import load_config, get_all_files, get_file_content
 
 def identify_broken_links(config):
     vault_path = config['obsidian']['vault_path']

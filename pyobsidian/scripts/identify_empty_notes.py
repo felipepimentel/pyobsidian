@@ -1,5 +1,5 @@
 import os
-from ..obsidian_helper import load_config, get_all_files, get_file_content
+from ..obsidian import load_config, get_all_files, get_file_content
 
 def identify_small_notes(config):
     vault_path = config['obsidian']['vault_path']

@@ -1,4 +1,4 @@
-from ..obsidian_helper import load_config, get_all_files, get_file_content
+from ..obsidian import load_config, get_all_files, get_file_content
 import os
 
 def identify_unused_images(config):
