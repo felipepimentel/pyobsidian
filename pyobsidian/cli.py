@@ -20,8 +20,8 @@ def register_commands(cli):
 
 
 def start_cli():
-    cli()
     register_commands(cli)
+    cli()
 
 
 if __name__ == "__main__":
