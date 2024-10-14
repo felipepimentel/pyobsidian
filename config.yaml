@@ -6,6 +6,16 @@ obsidian:
   small_note_threshold: 100
   empty_note_threshold: 10
   archive_days_threshold: 180
+  excluded_files:
+    - "^\\..*" # Exclude hidden files and folders
+    - "^_.*" # Exclude files and folders starting with underscore
+    - "**/templates/**" # Exclude template folders anywhere in the vault
+    - "**/Archive/**" # Exclude Archive folders anywhere in the vault
+    - "**/Attachments/**" # Exclude Attachments folders anywhere in the vault
+    - "**/.obsidian/**" # Exclude Obsidian config folders
+    - "**/.trash/**" # Exclude Obsidian trash folders
+    - "ignore_me.md"
+    - "private_note.md"
 
 smtp:
   server: "smtp.your-email-provider.com"
