@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 import re
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Pattern
+from typing import Any, Callable, Dict, List, Optional, Pattern
 
 import yaml
 
@@ -21,7 +23,9 @@ class FileOperationError(ObsidianCliError):
 class Config:
     def __init__(self, config_path: str = "config.yaml"):
         self.config_data = self._load_config(config_path)
-        self.vault_path: Optional[str] = self.config_data.get("obsidian", {}).get("vault_path")
+        self.vault_path: Optional[str] = self.config_data.get("obsidian", {}).get(
+            "vault_path"
+        )
         self.excluded_patterns: List[Pattern] = self._compile_exclusion_patterns(
             self.config_data.get("obsidian", {}).get("excluded_files", [])
         )
@@ -32,7 +36,9 @@ class Config:
             with open(config_path, "r", encoding="utf-8") as f:
                 config = yaml.safe_load(f)
                 if not isinstance(config, dict) or "obsidian" not in config:
-                    raise ConfigError("Invalid configuration structure. 'obsidian' key is missing.")
+                    raise ConfigError(
+                        "Invalid configuration structure. 'obsidian' key is missing."
+                    )
                 return config
         except FileNotFoundError:
             raise ConfigError(f"Config file not found: {config_path}")
@@ -125,7 +131,9 @@ class Vault:
         try:
             all_files = []
             for root, dirs, files in os.walk(self.config.vault_path):
-                dirs[:] = [d for d in dirs if not self._is_excluded(os.path.join(root, d))]
+                dirs[:] = [
+                    d for d in dirs if not self._is_excluded(os.path.join(root, d))
+                ]
                 for file in files:
                     if file.endswith(".md"):
                         file_path = os.path.join(root, file)
@@ -137,7 +145,9 @@ class Vault:
 
     def _is_excluded(self, path: str) -> bool:
         relative_path = os.path.relpath(path, self.config.vault_path)
-        return any(pattern.search(relative_path) for pattern in self.config.excluded_patterns)
+        return any(
+            pattern.search(relative_path) for pattern in self.config.excluded_patterns
+        )
 
     def _get_file_content(self, file_path: str) -> str:
         try:
@@ -152,8 +162,59 @@ class Vault:
     def get_all_notes(self) -> List[Note]:
         return list(self.notes.values())
 
+    def create_note(self, title: str, content: str) -> Note:
+        filename = f"{title.lower().replace(' ', '_')}.md"
+        path = os.path.join(self.config.vault_path, filename)
+
+        if os.path.exists(path):
+            raise FileOperationError(f"Note already exists: {path}")
+
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(f"# {title}\n\n{content}")
+
+            note = Note(path, f"# {title}\n\n{content}")
+            self.notes[path] = note
+            return note
+        except Exception as e:
+            raise FileOperationError(f"Error creating note: {str(e)}")
+
+    def update_note(self, path: str, new_content: str) -> Note:
+        note = self.get_note(path)
+        if not note:
+            raise FileOperationError(f"Note not found: {path}")
+
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            note.update_content(new_content)
+            return note
+        except Exception as e:
+            raise FileOperationError(f"Error updating note: {str(e)}")
+
+    def delete_note(self, path: str) -> None:
+        note = self.get_note(path)
+        if not note:
+            raise FileOperationError(f"Note not found: {path}")
+
+        try:
+            os.remove(path)
+            del self.notes[path]
+        except Exception as e:
+            raise FileOperationError(f"Error deleting note: {str(e)}")
+
 
 class ObsidianContext:
     def __init__(self, config_path: str = "config.yaml"):
         self.config = Config(config_path)
         self.vault = Vault(self.config)
+
+    def run(self, command_handler: Callable[[str, "ObsidianContext"], None]) -> None:
+        """Run the Obsidian CLI application."""
+        while True:
+            command = input(
+                "Enter command (list, view, create, update, delete, exit): "
+            )
+            if command == "exit":
+                break
+            command_handler(command, self)

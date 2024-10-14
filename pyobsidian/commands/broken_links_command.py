@@ -3,6 +3,7 @@ from typing import Dict, List
 import click
 
 from ..core import Link, ObsidianContext, Vault
+from ..ui_handler import display
 
 
 def get_broken_links(vault: "Vault") -> Dict[str, List[Link]]:
@@ -19,11 +20,13 @@ def get_broken_links(vault: "Vault") -> Dict[str, List[Link]]:
 def broken_links_command(ctx: ObsidianContext) -> None:
     """Identify broken links in notes."""
     broken_links = get_broken_links(ctx.vault)
-    click.echo(f"Found {len(broken_links)} notes with broken links")
-    for file, links in broken_links.items():
-        click.echo(f"\n{file}:")
-        for link in links:
-            click.echo(f"  - {link.target}")
+
+    display(
+        broken_links,
+        format="links",
+        empty_text="No broken links found",
+        title="Broken Links",
+    )
 
 
 def register_command(cli: click.Group) -> None:
