@@ -163,6 +163,5 @@ cython_debug/
 .aider*
 
 
-poetry.lock# Arquivo de configuração com dados sensíveis
 .env
-config.yaml
+

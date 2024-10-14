@@ -1,0 +1,20 @@
+obsidian:
+  vault_path: "/home/pimentel/Workspace/obsidian_vaults/personal-obsidian/Personal Vault"
+  backup_path: "/home/pimentel/Documents/obsidian_backup"
+  agenda_prefix: "1on1-"
+  merged_notes_folder: "Merges"
+  small_note_threshold: 100
+  empty_note_threshold: 10
+  archive_days_threshold: 180
+
+smtp:
+  server: "smtp.your-email-provider.com"
+  port: 587
+  username: "your-email@example.com"
+  password: "your-email-password"
+  from: "your-email@example.com"
+  to: "recipient-email@example.com"
+
+google_calendar:
+  credentials_file: "credentials.json"
+  token_file: "token.json"
