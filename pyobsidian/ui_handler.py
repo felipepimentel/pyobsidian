@@ -350,3 +350,87 @@ def display_orphan_links(orphans: List[Tuple[str, List[str]]], verbose: bool) ->
         console.print(
             "\n[yellow]Use a opção --verbose para ver os links completos.[/yellow]"
         )
+
+
+def display_unused_tags(unused_tags: List[str]) -> None:
+    click.echo("Unused tags:")
+    for tag in unused_tags:
+        click.echo(f"- {tag}")
+
+
+def display_standardized_tags(standardized_tags: Dict[str, str], dry_run: bool) -> None:
+    click.echo("Standardized tags:")
+    for old_tag, new_tag in standardized_tags.items():
+        click.echo(f"- {old_tag} -> {new_tag}")
+    if dry_run:
+        click.echo("This was a dry run. No changes were applied.")
+
+
+def display_note_relationships(relationships: List[Tuple[str, str]]) -> None:
+    click.echo("Note relationships:")
+    for source, target in relationships:
+        click.echo(f"- {source} -> {target}")
+
+
+def display_vault_growth(growth_data: Dict[str, Dict[str, int]]) -> None:
+    click.echo("Vault growth:")
+    for action, data in growth_data.items():
+        click.echo(f"{action.capitalize()}:")
+        for date, count in data.items():
+            click.echo(f"- {date}: {count}")
+
+
+def display_link_density(link_data: Dict[str, int]) -> None:
+    click.echo("Link density:")
+    sorted_data = sorted(link_data.items(), key=lambda x: x[1], reverse=True)
+    for note, links in sorted_data:
+        click.echo(f"- {note}: {links} links")
+
+
+def display_sensitive_data(sensitive_notes: Dict[str, Dict[str, List[str]]], verbose: bool) -> None:
+    if not sensitive_notes:
+        console.print("[green]No sensitive data detected in any notes.[/green]")
+        return
+
+    table = Table(title="Notes with Potentially Sensitive Data")
+    table.add_column("Note Title", style="cyan")
+    table.add_column("Sensitive Data Type", style="magenta")
+    table.add_column("Occurrences", justify="right", style="green")
+    
+    if verbose:
+        table.add_column("Matched Data", style="yellow")
+
+    for note_title, data_types in sensitive_notes.items():
+        for data_type, matches in data_types.items():
+            if verbose:
+                for match in matches:
+                    table.add_row(note_title, data_type, str(len(matches)), match)
+            else:
+                table.add_row(note_title, data_type, str(len(matches)))
+
+    console.print(table)
+
+    total_notes = len(sensitive_notes)
+    total_matches = sum(len(matches) for data_types in sensitive_notes.values() for matches in data_types.values())
+    console.print(f"\n[bold]Summary:[/bold]")
+    console.print(f"- Total notes with sensitive data: {total_notes}")
+    console.print(f"- Total sensitive data occurrences: {total_matches}")
+
+    if not verbose:
+        console.print("\n[yellow]Use --verbose flag to see detailed matches.[/yellow]")
+
+
+def display_export_result(result: str) -> None:
+    click.echo(result)
+
+
+def display_filtered_notes(notes: List[object]) -> None:
+    click.echo("Filtered notes:")
+    for note in notes:
+        click.echo(f"- {note.title}")
+
+
+def display_saved_filters(filters: Dict[str, str]) -> None:
+    click.echo("Saved filters:")
+    for name, query in filters.items():
+        click.echo(f"- {name}: {query}")

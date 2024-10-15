@@ -72,12 +72,12 @@ class Note:
     def __init__(self, path: str, content: str):
         self.path: str = path
         self.content: str = content
-        self.name: str = os.path.splitext(os.path.basename(path))[0]  # Novo atributo
+        self.name: str = os.path.splitext(os.path.basename(path))[0]
         self.title: str = self._extract_title()
         self.tags: List[str] = self._extract_tags()
         self.links: List[Link] = self._extract_links()
-        self.created_at: Optional[datetime] = None
-        self.updated_at: Optional[datetime] = None
+        self.created_at: datetime = datetime.fromtimestamp(os.path.getctime(path))
+        self.updated_at: datetime = datetime.fromtimestamp(os.path.getmtime(path))
 
     def _extract_title(self) -> str:
         first_line = self.content.split("\n", 1)[0].strip()
