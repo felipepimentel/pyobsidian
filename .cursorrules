@@ -1,1 +1,80 @@
-You are an AI assistant specialized in Python development. Your approach emphasizes:Clear project structure with separate directories for source code, tests, docs, and config.Modular design with distinct files for models, services, controllers, and utilities.Configuration management using environment variables.Robust error handling and logging, including context capture.Comprehensive testing with pytest.Detailed documentation using docstrings and README files.Dependency management via <https://github.com/felipepimentel/pyobsidian> and virtual environments.Code style consistency using Ruff.CI/CD implementation with GitHub Actions or GitLab CI.AI-friendly coding practices:You provide code snippets and explanations tailored to these principles, optimizing for clarity and AI-assisted development.Follow the following rules:For any python file, be sure to ALWAYS add typing annotations to each function or class. Be sure to include return types when necessary. Add descriptive docstrings to all python functions and classes as well. Please use pep257 convention. Update existing docstrings if need be.Make sure you keep any comments that exist in a file.When writing tests, make sure that you ONLY use pytest or pytest plugins, do NOT use the unittest module. All tests should have typing annotations as well. All tests should be in ./tests. Be sure to create all necessary files and folders. If you are creating files inside of ./tests or ./pyobsidian, be sure to make a init.py file if one does not exist.All tests should be fully annotated and should contain docstrings. Be sure to import the following if TYPE_CHECKING:from \pytest.capture import CaptureFixturefrom_pytest.fixtures import FixtureRequestfrom \pytest.logging import LogCaptureFixturefrom_pytest.
+# .cursorrules for Python Project: PyObsidian
+
+## General Python Project Guidelines
+
+- **Typing Annotations**: All Python functions and classes must include typing annotations. Be explicit about return types where applicable.
+- **Docstrings**: Ensure that all Python functions and classes are documented using docstrings following PEP257 conventions. Update or enhance existing docstrings when necessary.
+
+- **Comments**: Retain any existing comments in files to ensure clarity and maintain context.
+
+- **Tests**:
+
+  - All tests must be written using `pytest` or its plugins.
+  - Do not use the `unittest` module.
+  - Ensure every test is fully typed and includes docstrings.
+  - All tests should be placed under the `./tests` directory. If this directory or relevant subdirectories do not exist, create them.
+  - If new test files are added inside `./tests` or `./pyobsidian`, ensure that an `__init__.py` file is present.
+  - Import necessary modules such as:
+
+    ```python
+    from typing import TYPE_CHECKING
+    from pytest.capture import CaptureFixture
+    from pytest.fixtures import FixtureRequest
+    from pytest.logging import LogCaptureFixture
+    ```
+
+- **Directory Structure**: Follow a clean directory structure with separate folders for source code, tests, documentation, and configuration.
+
+  - Use distinct files for models, services, controllers, and utilities.
+
+- **Configuration**:
+
+  - Manage configurations through environment variables. Avoid hardcoded paths or configurations.
+
+- **Error Handling**:
+
+  - Implement robust error handling across the project. Use logging to capture detailed context for debugging.
+  - Ensure that errors are logged with appropriate severity levels (e.g., `info`, `warning`, `error`, `critical`).
+
+- **Code Style**:
+
+  - Ensure consistent code style using `Ruff` for linting. Keep code formatting uniform throughout the project.
+
+- **Dependency Management**: Use the PyObsidian repository from `<https://github.com/felipepimentel/pyobsidian>` and virtual environments to manage dependencies. Do not rely on system-wide installations.
+
+## Command Creation Guidelines
+
+When creating a new command, follow these guidelines:
+
+1. **File Creation**:
+
+   - Add your command in a file with the suffix `_command.py` inside the `**/pyobsidian/commands/**` directory.
+   - Example: `/pyobsidian/commands/my_custom_command.py`.
+
+2. **Function Definition**:
+
+   - Define your command using `@click.command()` from the `click` library.
+   - Use `@click.option()` or `@click.argument()` to define any parameters the command might need.
+   - Access the global context `obsidian_context` where necessary.
+
+   - **IMPORTANT**: All **display and output** functions (such as `click.echo`, `display_table`, or any other kind of output handling) must be placed in the **`/pyobsidian/ui_handler.py`** module. **Do not define display logic inside command handlers or core logic**. Ensure that each command performs its core task, delegating output responsibilities to the `ui_handler`.
+
+3. **Example of a Basic Command**:
+
+   Example of a command that follows the project guidelines, delegating display logic to the `ui_handler`:
+
+   ```python
+   import click
+   from ..core import obsidian_context
+   from ..ui_handler import display_notes
+
+   @click.command()
+   def list_notes() -> None:
+       """List all notes in the Vault."""
+       notes = obsidian_context.vault.get_all_notes()
+       display_notes(notes, format="table", title="All Notes")
+
+   def register_command(cli: click.Group) -> None:
+       """Register the list-notes command to the CLI group."""
+       cli.add_command(list_notes, name="list-notes")
+   ```

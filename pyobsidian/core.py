@@ -72,6 +72,7 @@ class Note:
     def __init__(self, path: str, content: str):
         self.path: str = path
         self.content: str = content
+        self.name: str = os.path.splitext(os.path.basename(path))[0]  # Novo atributo
         self.title: str = self._extract_title()
         self.tags: List[str] = self._extract_tags()
         self.links: List[Link] = self._extract_links()
