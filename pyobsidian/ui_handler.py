@@ -387,7 +387,9 @@ def display_link_density(link_data: Dict[str, int]) -> None:
         click.echo(f"- {note}: {links} links")
 
 
-def display_sensitive_data(sensitive_notes: Dict[str, Dict[str, List[str]]], verbose: bool) -> None:
+def display_sensitive_data(
+    sensitive_notes: Dict[str, Dict[str, List[str]]], verbose: bool
+) -> None:
     if not sensitive_notes:
         console.print("[green]No sensitive data detected in any notes.[/green]")
         return
@@ -396,7 +398,7 @@ def display_sensitive_data(sensitive_notes: Dict[str, Dict[str, List[str]]], ver
     table.add_column("Note Title", style="cyan")
     table.add_column("Sensitive Data Type", style="magenta")
     table.add_column("Occurrences", justify="right", style="green")
-    
+
     if verbose:
         table.add_column("Matched Data", style="yellow")
 
@@ -411,8 +413,12 @@ def display_sensitive_data(sensitive_notes: Dict[str, Dict[str, List[str]]], ver
     console.print(table)
 
     total_notes = len(sensitive_notes)
-    total_matches = sum(len(matches) for data_types in sensitive_notes.values() for matches in data_types.values())
-    console.print(f"\n[bold]Summary:[/bold]")
+    total_matches = sum(
+        len(matches)
+        for data_types in sensitive_notes.values()
+        for matches in data_types.values()
+    )
+    console.print("\n[bold]Summary:[/bold]")
     console.print(f"- Total notes with sensitive data: {total_notes}")
     console.print(f"- Total sensitive data occurrences: {total_matches}")
 
