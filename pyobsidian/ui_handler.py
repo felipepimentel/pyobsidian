@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from rich.console import Console
 from rich.panel import Panel
@@ -9,7 +9,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
 
-from pyobsidian.core import Link, Note
+from pyobsidian.core import Link, Note, obsidian_context
 
 console = Console()
 
@@ -203,3 +203,56 @@ def _display_links(
 
     console.print(tree)
     console.print(f"[red]Found {len(items)} items with links[/red]")
+
+
+def handle_bulk_action(
+    items: List[Any], item_type: str, action: Callable[[List[Any]], None]
+) -> None:
+    """
+    Handle bulk actions on a list of items.
+
+    Args:
+        items (List[Any]): The list of items to process.
+        item_type (str): The type of items being processed.
+        action (Callable[[List[Any]], None]): The action to perform on the items.
+    """
+    if not items:
+        display_success(f"No {item_type} found.")
+        return
+
+    display(items, format="table", title=f"{item_type.capitalize()} to process")
+    if confirm_action(f"Do you want to process these {item_type}?"):
+        action(items)
+        display_success(f"Processed {len(items)} {item_type}.")
+    else:
+        display_error("Action cancelled.")
+
+
+def handle_command_action(
+    items: List[Any],
+    item_type: Optional[str] = None,
+    delete: bool = False,
+    display_format: str = "table",
+    empty_text: str = "No items found",
+    title: Optional[str] = None,
+) -> None:
+    """
+    Handle command actions for displaying or deleting items.
+    """
+    if item_type is None and items:
+        item_type = type(items[0]).__name__.lower() + "s"
+
+    if not items:
+        display_success(f"No {item_type} found.")
+        return
+
+    if delete:
+        obsidian_context.vault.delete_notes(items)
+        display_success(f"Processed {len(items)} {item_type}.")
+    else:
+        display(
+            items,
+            format=display_format,
+            empty_text=empty_text,
+            title=title or f"{item_type.capitalize()}",
+        )

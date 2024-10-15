@@ -112,6 +112,17 @@ class Note:
             self.tags.append(tag)
             self.updated_at = datetime.now()
 
+    def __str__(self) -> str:
+        return self.path
+
+    def __repr__(self) -> str:
+        return f"Note(path={self.path}, title={self.title})"
+
+    @property
+    def word_count(self) -> int:
+        """Calculate the word count of the note."""
+        return len(self.content.split())
+
 
 class Vault:
     def __init__(self, config: Config):
@@ -192,22 +203,45 @@ class Vault:
         except Exception as e:
             raise FileOperationError(f"Error updating note: {str(e)}")
 
-    def delete_note(self, path: str) -> None:
-        note = self.get_note(path)
-        if not note:
-            raise FileOperationError(f"Note not found: {path}")
+    def delete_note(self, note: Note) -> None:
+        """
+        Delete a single note from the vault.
 
+        Args:
+            note (Note): The note to be deleted.
+
+        Raises:
+            FileOperationError: If there's an error during deletion.
+        """
         try:
-            os.remove(path)
-            del self.notes[path]
+            os.remove(note.path)
+            del self.notes[note.path]
         except Exception as e:
             raise FileOperationError(f"Error deleting note: {str(e)}")
 
+    def delete_notes(self, notes: List[Note]) -> None:
+        """
+        Delete multiple notes from the vault.
+
+        Args:
+            notes (List[Note]): A list of notes to be deleted.
+
+        Raises:
+            FileOperationError: If there's an error during deletion of any note.
+        """
+        for note in notes:
+            self.delete_note(note)
+
 
 class ObsidianContext:
-    def __init__(self, config_path: str = "config.yaml"):
-        self.config = Config(config_path)
-        self.vault = Vault(self.config)
+    _instance = None
+
+    def __new__(cls, config_path: str = "config.yaml"):
+        if cls._instance is None:
+            cls._instance = super(ObsidianContext, cls).__new__(cls)
+            cls._instance.config = Config(config_path)
+            cls._instance.vault = Vault(cls._instance.config)
+        return cls._instance
 
     def run(self, command_handler: Callable[[str, "ObsidianContext"], None]) -> None:
         """Run the Obsidian CLI application."""
@@ -218,3 +252,6 @@ class ObsidianContext:
             if command == "exit":
                 break
             command_handler(command, self)
+
+
+obsidian_context = ObsidianContext()

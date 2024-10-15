@@ -2,46 +2,24 @@ from typing import List
 
 import click
 
-from ..core import Note, ObsidianContext, Vault
-from ..ui_handler import display
+from ..core import Note, Vault, obsidian_context
+from ..ui_handler import handle_command_action
 
 
 def get_small_notes(vault: "Vault", threshold: int) -> List[Note]:
-    return [
-        note
-        for note in vault.get_all_notes()
-        if threshold <= note.file_size < threshold * 2
-    ]
-
-
-def get_empty_notes(vault: "Vault", threshold: int) -> List[Note]:
-    return [note for note in vault.get_all_notes() if note.file_size < threshold]
+    return [note for note in vault.get_all_notes() if note.word_count < threshold]
 
 
 @click.command()
-@click.pass_obj
-def small_notes_command(ctx: ObsidianContext) -> None:
-    """Identify small and empty notes."""
-    small_threshold = ctx.config.get("small_note_threshold", 100)
-    empty_threshold = ctx.config.get("empty_note_threshold", 10)
+@click.option("--delete", is_flag=True, help="Delete the identified small notes")
+@click.option("--threshold", default=50, help="Word count threshold for small notes")
+def small_notes_command(delete: bool, threshold: int) -> None:
+    """Identify small notes based on word count."""
+    small_notes = get_small_notes(obsidian_context.vault, threshold)
 
-    empty_notes = get_empty_notes(ctx.vault, empty_threshold)
-    small_notes = get_small_notes(ctx.vault, small_threshold)
-
-    display(
-        empty_notes,
-        format="table",
-        empty_text="No empty notes found",
-        title="Empty Notes",
-    )
-
-    display(
-        small_notes,
-        format="table",
-        empty_text="No small notes found",
-        title="Small Notes",
-    )
+    handle_command_action(items=small_notes, delete=delete)
 
 
 def register_command(cli: click.Group) -> None:
+    """Register the small notes command to the CLI group."""
     cli.add_command(small_notes_command, name="small-notes")
