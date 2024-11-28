@@ -17,7 +17,7 @@ markdown2 = "^2.5.0"
 rich = "^13.9.2"
 [tool.poetry.dev-dependencies]
 pytest = "^6.2.5"
-black = "^21.9b0"
+black = "^24.3"
 flake8 = "^4.0.1"
 
 [build-system]
