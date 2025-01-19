@@ -165,3 +165,8 @@ cython_debug/
 
 .env
 
+
+backups/
+exports/
+
+.pyenv

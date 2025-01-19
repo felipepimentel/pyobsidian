@@ -1,93 +1,84 @@
-from typing import Dict, Set
-
+"""Tag management command."""
 import click
+import re
 
-from ..core import FileOperationError, obsidian_context
-from ..ui_handler import (
-    display_error,
-    display_standardized_tags,
-    display_success,
-    display_unused_tags,
-)
+from ..core import obsidian_context
+from ..ui_handler import display_success, display_error
+from .base_command import BaseCommand
 
 
-@click.group()
-def tag_management() -> None:
-    """Commands for tag management and optimization."""
-    pass
+@click.command(cls=BaseCommand, name="add-tag")
+@click.argument("note_path")
+@click.argument("tag")
+def add_tag(note_path: str, tag: str) -> None:
+    """Add a tag to a note."""
+    try:
+        note = obsidian_context.vault.get_note(note_path)
+        if note is None:
+            display_error(f"Note '{note_path}' not found.")
+            return
+
+        note.add_tag(tag)
+        obsidian_context.vault.update_note(note_path, note.content)
+        display_success(f"Added tag '#{tag}' to note '{note_path}'")
+    except Exception as e:
+        display_error(f"Failed to add tag: {str(e)}")
 
 
-@tag_management.command()
-def clean_unused_tags() -> None:
-    """Identify and remove tags that are not used in any note."""
-    vault = obsidian_context.vault
-    all_tags: Set[str] = set()
-    used_tags: Set[str] = set()
+@click.command(cls=BaseCommand, name="remove-tag")
+@click.argument("note_path")
+@click.argument("tag")
+def remove_tag(note_path: str, tag: str) -> None:
+    """Remove a tag from a note."""
+    try:
+        note = obsidian_context.vault.get_note(note_path)
+        if note is None:
+            display_error(f"Note '{note_path}' not found.")
+            return
 
-    for note in vault.get_all_notes():
-        all_tags.update(note.tags)
-        used_tags.update(note.tags)
+        note.remove_tag(tag)
+        obsidian_context.vault.update_note(note_path, note.content)
+        display_success(f"Removed tag '#{tag}' from note '{note_path}'")
+    except Exception as e:
+        display_error(f"Failed to remove tag: {str(e)}")
 
-    unused_tags = list(all_tags - used_tags)
-    display_unused_tags(unused_tags)
 
-
-@tag_management.command()
-@click.option("--dry-run", is_flag=True, help="Show changes without applying them.")
-def standardize_tags(dry_run: bool) -> None:
-    """Correct inconsistencies in tag nomenclature and ensure they follow a standard format."""
-    vault = obsidian_context.vault
-    all_tags: Set[str] = set()
-    standardized_tags: Dict[str, str] = {}
-
-    # Primeiro, colete todas as tags e crie o mapeamento de padronização
-    for note in vault.get_all_notes():
-        all_tags.update(note.tags)
-
-    for tag in all_tags:
-        standardized = tag.lower().replace(" ", "_")
-        if tag != standardized:
-            standardized_tags[tag] = standardized
-
-    if not dry_run:
-        updated_count = 0
-        error_count = 0
-        skipped_count = 0
-        for note in vault.get_all_notes():
-            updated = False
-            new_tags = set()
-            for tag in note.tags:
-                if tag in standardized_tags:
-                    new_tags.add(standardized_tags[tag])
-                    updated = True
-                else:
-                    new_tags.add(tag)
-            if updated:
-                # Update the note's content with new tags
-                new_content = note.content
-                for old_tag, new_tag in standardized_tags.items():
-                    new_content = new_content.replace(f"#{old_tag}", f"#{new_tag}")
-
-                note.tags = new_tags
-                try:
-                    vault.update_note(note, new_content)
-                    updated_count += 1
-                except FileOperationError as e:
-                    if "Note not found" in str(e):
-                        skipped_count += 1
-                    else:
-                        display_error(
-                            f"Failed to update note {note.filename}: {str(e)}"
-                        )
-                        error_count += 1
-
-        display_success(
-            f"Updated {updated_count} notes. Skipped {skipped_count} notes. Encountered {error_count} errors."
-        )
-
-    display_standardized_tags(standardized_tags, dry_run)
+@click.command(cls=BaseCommand)
+@click.argument("old_tag")
+@click.argument("new_tag")
+def replace_tag(old_tag: str, new_tag: str) -> None:
+    """Replace all occurrences of OLD_TAG with NEW_TAG in all notes."""
+    try:
+        # Strip # from tags if present
+        old_tag = old_tag.lstrip('#')
+        new_tag = new_tag.lstrip('#')
+        
+        notes_updated = 0
+        for note in obsidian_context.vault.notes.values():
+            # Check if the note contains the old tag
+            if old_tag in [tag.lstrip('#') for tag in note.tags]:
+                # Replace the tag in the content
+                content = note.content
+                # Use regex to ensure we only replace exact tag matches
+                content = re.sub(f'#({old_tag})(?![\\w-])', f'#{new_tag}', content)
+                
+                # Update the note content and force reload of tags
+                obsidian_context.vault.update_note(note.path, content)
+                note.update_content(content)
+                # Ensure the note object is updated in the vault
+                obsidian_context.vault.notes[note.path] = note
+                notes_updated += 1
+        
+        if notes_updated > 0:
+            display_success(f"Replaced tag #{old_tag} with #{new_tag} in {notes_updated} notes.")
+        else:
+            display_success(f"No notes found with tag #{old_tag}.")
+    except Exception as e:
+        display_error(f"Failed to replace tag: {str(e)}")
 
 
 def register_command(cli: click.Group) -> None:
     """Register the tag management commands to the CLI group."""
-    cli.add_command(tag_management)
+    cli.add_command(add_tag)
+    cli.add_command(remove_tag)
+    cli.add_command(replace_tag)

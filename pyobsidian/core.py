@@ -3,9 +3,11 @@ from __future__ import annotations
 import os
 import re
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Pattern
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Pattern, Union
 
 import yaml
+import time
 
 
 class ObsidianCliError(Exception):
@@ -62,187 +64,461 @@ class Config:
 
 
 class Link:
-    def __init__(self, source: "Note", target: str, alias: Optional[str] = None):
-        self.source: "Note" = source
-        self.target: str = target
-        self.alias: Optional[str] = alias
+    """A link between notes in the vault."""
+
+    def __init__(self, source: Union[str, "Note"], target: str, alias: Optional[str] = None) -> None:
+        """Initialize a link.
+        
+        Args:
+            source: The source note or path.
+            target: The target path.
+            alias: Optional alias for the link.
+        """
+        self._source = source
+        self._target = target.strip()  # Remove whitespace
+        self._alias = alias.strip() if alias else None
+
+    @property
+    def source(self) -> Union[str, "Note"]:
+        """Get the source note or path."""
+        return self._source
+
+    @property
+    def target(self) -> str:
+        """Get the target path."""
+        return self._target.removesuffix('.md')  # Remove .md suffix if present
+
+    @property
+    def alias(self) -> Optional[str]:
+        """Get the link alias."""
+        return self._alias
+
+    def __repr__(self) -> str:
+        """Get a string representation of the link."""
+        return f"Link(source={self.source}, target={self.target}, alias={self.alias})"
+
+    def __eq__(self, other: object) -> bool:
+        """Check if two links are equal."""
+        if not isinstance(other, Link):
+            return NotImplemented
+        return (self.source == other.source and 
+                self.target == other.target and 
+                self.alias == other.alias)
 
 
 class Note:
-    def __init__(self, path: str, content: str):
-        self.path: str = path
-        self.content: str = content
-        self.name: str = os.path.splitext(os.path.basename(path))[0]
-        self.title: str = self._extract_title()
-        self.tags: List[str] = self._extract_tags()
-        self.links: List[Link] = self._extract_links()
-        self.created_at: datetime = datetime.fromtimestamp(os.path.getctime(path))
-        self.updated_at: datetime = datetime.fromtimestamp(os.path.getmtime(path))
+    """A note in the vault."""
+
+    def __init__(self, path: str, content: str) -> None:
+        """Initialize a note.
+        
+        Args:
+            path: The path to the note file.
+            content: The content of the note.
+        """
+        self._path = path
+        self._content = content
+        self._title = self._extract_title()
+        self._links = self._extract_links()
 
     def _extract_title(self) -> str:
-        first_line = self.content.split("\n", 1)[0].strip()
-        return first_line.lstrip("#").strip() if first_line.startswith("#") else ""
-
-    def _extract_tags(self) -> List[str]:
-        return re.findall(r"#(\w+)", self.content)
-
-    def _extract_links(self) -> List[Link]:
-        links = []
-        for match in re.finditer(r"\[\[([^\]|]+)(?:\|([^\]]+))?\]\]", self.content):
-            target = match.group(1)
-            alias = match.group(2)
-            links.append(Link(self, target, alias))
-        return links
+        """Extract the title from the note content."""
+        if not self._content.strip():
+            return ""
+        lines = self._content.splitlines()
+        for line in lines:
+            line = line.strip()
+            if line.startswith("# "):
+                return line[2:].strip()
+        return ""  # Return empty string if no H1 header found
 
     @property
-    def filename(self) -> str:
-        return os.path.basename(self.path)
+    def tags(self) -> List[str]:
+        """Get all tags in the note content."""
+        # Remove code blocks first
+        content = self._remove_code_blocks(self._content)
+        
+        # Find all tags
+        pattern = r'#([a-zA-Z0-9][\w-]*(?:-[\w-]+)*)'
+        matches = re.finditer(pattern, content)
+        
+        # Keep track of seen tags to avoid duplicates
+        seen = set()
+        tags = []
+        
+        for match in matches:
+            tag = match.group(1)
+            # Skip invalid tags
+            if tag.startswith('!') or tag.startswith('-') or tag.endswith('-'):
+                continue
+            if tag not in seen:
+                seen.add(tag)
+                tags.append(tag)
+        
+        return tags
 
-    @property
-    def file_size(self) -> int:
-        return len(self.content)
+    def _remove_code_blocks(self, content: str) -> str:
+        """Remove fenced code blocks and inline code."""
+        # Remove fenced code blocks
+        content = re.sub(r'```[^`]*```', '', content, flags=re.DOTALL)
+        # Remove inline code
+        content = re.sub(r'`[^`]+`', '', content)
+        return content
 
-    def update_content(self, new_content: str) -> None:
-        self.content = new_content
-        self.updated_at = datetime.now()
-        self.tags = self._extract_tags()
-        self.links = self._extract_links()
-
-    def add_tag(self, tag: str) -> None:
-        if tag not in self.tags:
-            self.tags.append(tag)
-            self.updated_at = datetime.now()
-
-    def __str__(self) -> str:
-        return self.path
-
-    def __repr__(self) -> str:
-        return f"Note(path={self.path}, title={self.title})"
+    def _remove_emphasis(self, content: str) -> str:
+        """Remove emphasis markers and their content."""
+        content = re.sub(r'\*\*[^*]+\*\*', '', content)  # Bold
+        content = re.sub(r'\*[^*]+\*', '', content)      # Italic
+        content = re.sub(r'__[^_]+__', '', content)      # Underline
+        content = re.sub(r'_[^_]+_', '', content)        # Single underscore
+        return content
 
     @property
     def word_count(self) -> int:
-        """Calculate the word count of the note."""
-        return len(self.content.split())
+        """Calculate the number of words in the note content."""
+        # Remove code blocks and inline code
+        content = self._remove_code_blocks(self._content)
+        
+        # Remove headers
+        content = re.sub(r'^#.*$', '', content, flags=re.MULTILINE)
+        
+        # Remove links
+        content = re.sub(r'\[\[.*?\]\]', '', content)
+        
+        # Remove tags
+        content = re.sub(r'#[\w-]+', '', content)
+        
+        # Remove emphasis markers without removing their content
+        content = re.sub(r'(\*\*|\*|__|_)', '', content)
+        
+        # Remove extra whitespace and normalize
+        content = re.sub(r'\s+', ' ', content).strip()
+        
+        # Split into words and filter out non-word tokens
+        words = [w for w in content.split() if any(c.isalnum() for c in w)]
+        
+        return len(words)
+
+    def _extract_links(self) -> List[Link]:
+        """Extract internal links from the note content."""
+        links = []
+        pattern = r'\[\[(.*?)(?:\|(.*?))?\]\]'
+        
+        # First remove all code blocks
+        content = self._remove_code_blocks(self._content)
+        
+        # Find all links in the remaining content
+        for match in re.finditer(pattern, content):
+            target = match.group(1).strip()
+            alias = match.group(2).strip() if match.group(2) else None
+            links.append(Link(self, target, alias))
+        
+        return links
+
+    @property
+    def path(self) -> str:
+        """Get the path of the note."""
+        return self._path
+
+    @property
+    def content(self) -> str:
+        """Get the content of the note."""
+        return self._content
+
+    @property
+    def title(self) -> str:
+        """Get the title of the note."""
+        return self._title
+
+    @property
+    def links(self) -> List[Link]:
+        """Get the links in the note."""
+        return self._links
+
+    @property
+    def filename(self) -> str:
+        """Get the filename of the note."""
+        return os.path.basename(self._path)
+
+    def update_content(self, content: str) -> None:
+        """Update the note content and recalculate metadata.
+
+        Args:
+            content: The new content for the note.
+        """
+        self._content = content
+        self._title = self._extract_title()
+        self._links = self._extract_links()
+
+    def add_tag(self, tag: str) -> None:
+        """Add a tag to the note.
+        
+        Args:
+            tag: The tag to add (without the # prefix).
+        """
+        # Strip # from tag if present
+        tag = tag.lstrip('#')
+        
+        # Check if tag already exists
+        if tag in self.tags:
+            return
+        
+        # Add tag at the end of the first line that's not a header
+        lines = self._content.splitlines()
+        header_end = 0
+        for i, line in enumerate(lines):
+            if line.strip() and not line.strip().startswith('#'):
+                header_end = i
+                break
+        
+        # Add the tag
+        if header_end < len(lines):
+            lines[header_end] = f"{lines[header_end]} #{tag}"
+        else:
+            lines.append(f"#{tag}")
+        
+        # Update content
+        self.update_content('\n'.join(lines))
+
+    def remove_tag(self, tag: str) -> None:
+        """Remove a tag from the note.
+        
+        Args:
+            tag: The tag to remove (without the # prefix).
+        """
+        # Strip # from tag if present
+        tag = tag.lstrip('#')
+        
+        # Check if tag exists
+        if tag not in self.tags:
+            return
+        
+        # Remove the tag using regex
+        content = self._content
+        content = re.sub(f'#({tag})(?![\\w-])', '', content)
+        
+        # Clean up any resulting double spaces
+        content = re.sub(r' +', ' ', content)
+        
+        # Update content
+        self.update_content(content)
+
+    def __repr__(self) -> str:
+        """Get a string representation of the note."""
+        return f"Note(path={self.path}, title={self.title})"
 
 
 class Vault:
-    def __init__(self, config: Config):
-        self.config = config
-        self.notes: Dict[str, Note] = self._load_notes()
+    """A vault containing notes."""
 
-    def _load_notes(self) -> Dict[str, Note]:
-        notes = {}
-        for file_path in self._get_all_files():
-            content = self._get_file_content(file_path)
-            notes[file_path] = Note(file_path, content)
-        return notes
+    def __init__(self, vault_path: Union[str, Path]) -> None:
+        """Initialize a vault.
+
+        Args:
+            vault_path: Path to the vault directory.
+        """
+        self.vault_path = Path(vault_path)
+        self.notes: Dict[str, Note] = {}
+        self._load_notes()
 
     def _get_all_files(self) -> List[str]:
-        if not self.config.vault_path:
-            raise FileOperationError("Vault path is not set in the configuration.")
-        try:
-            all_files = []
-            for root, dirs, files in os.walk(self.config.vault_path):
-                dirs[:] = [
-                    d for d in dirs if not self._is_excluded(os.path.join(root, d))
-                ]
-                for file in files:
-                    if file.endswith(".md"):
-                        file_path = os.path.join(root, file)
-                        if not self._is_excluded(file_path):
-                            all_files.append(file_path)
-            return all_files
-        except Exception as e:
-            raise FileOperationError(f"Error listing files in vault: {str(e)}")
+        """Get all markdown files in the vault."""
+        if not self.vault_path.exists():
+            return []
 
-    def _is_excluded(self, path: str) -> bool:
-        relative_path = os.path.relpath(path, self.config.vault_path)
-        return any(
-            pattern.search(relative_path) for pattern in self.config.excluded_patterns
-        )
+        markdown_files = []
+        for file_path in self.vault_path.rglob("*.md"):
+            try:
+                rel_path = file_path.relative_to(self.vault_path)
+                markdown_files.append(str(rel_path))
+            except ValueError:
+                continue
+        return markdown_files
 
-    def _get_file_content(self, file_path: str) -> str:
-        try:
-            with open(file_path, "r", encoding="utf-8") as f:
-                return f.read()
-        except Exception as e:
-            raise FileOperationError(f"Error reading file {file_path}: {str(e)}")
+    def _load_notes(self) -> None:
+        """Load all notes from the vault."""
+        self.notes.clear()
+        for file_path in self._get_all_files():
+            try:
+                note_path = self.vault_path / file_path
+                if note_path.exists():
+                    content = note_path.read_text()
+                    self.notes[file_path] = Note(file_path, content)
+            except (OSError, UnicodeDecodeError):
+                continue
 
     def get_note(self, path: str) -> Optional[Note]:
+        """Get a note by its path."""
         return self.notes.get(path)
 
+    def note_exists(self, target: str) -> bool:
+        """Check if a note exists in the vault.
+        
+        Args:
+            target: The target path or name of the note.
+            
+        Returns:
+            bool: True if the note exists, False otherwise.
+        """
+        # Try with and without .md extension
+        target_with_md = f"{target}.md" if not target.endswith('.md') else target
+        target_without_md = target[:-3] if target.endswith('.md') else target
+        
+        # Check if either version exists in notes
+        return any(
+            note.path.endswith(target_with_md) or 
+            note.path.endswith(target_without_md) 
+            for note in self.notes.values()
+        )
+
     def get_all_notes(self) -> List[Note]:
+        """Get all notes in the vault."""
         return list(self.notes.values())
 
-    def create_note(self, title: str, content: str) -> Note:
+    def create_note(self, title: str, content: str = "") -> Note:
+        """Create a new note in the vault.
+
+        Args:
+            title: The title of the note.
+            content: Optional initial content for the note.
+
+        Returns:
+            The created note.
+        """
         filename = f"{title.lower().replace(' ', '_')}.md"
-        path = os.path.join(self.config.vault_path, filename)
+        path = str(self.vault_path / filename)
+        if not content:
+            content = f"# {title}\n"
+        with open(path, "w") as f:
+            f.write(content)
+        note = Note(filename, content)
+        self.notes[filename] = note
+        return note
 
-        if os.path.exists(path):
-            raise FileOperationError(f"Note already exists: {path}")
-
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(f"# {title}\n\n{content}")
-
-            note = Note(path, f"# {title}\n\n{content}")
-            self.notes[path] = note
-            return note
-        except Exception as e:
-            raise FileOperationError(f"Error creating note: {str(e)}")
-
-    def update_note(self, path: str, new_content: str) -> Note:
-        note = self.get_note(path)
-        if not note:
-            raise FileOperationError(f"Note not found: {path}")
-
-        try:
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(new_content)
-            note.update_content(new_content)
-            return note
-        except Exception as e:
-            raise FileOperationError(f"Error updating note: {str(e)}")
-
-    def delete_note(self, note: Note) -> None:
-        """
-        Delete a single note from the vault.
+    def update_note(self, path: str, content: str) -> None:
+        """Update a note's content.
 
         Args:
-            note (Note): The note to be deleted.
-
-        Raises:
-            FileOperationError: If there's an error during deletion.
+            path: The path to the note.
+            content: The new content for the note.
         """
-        try:
-            os.remove(note.path)
-            del self.notes[note.path]
-        except Exception as e:
-            raise FileOperationError(f"Error deleting note: {str(e)}")
+        note_path = self.vault_path / path
+        with open(note_path, "w") as f:
+            f.write(content)
+        if path in self.notes:
+            self.notes[path].update_content(content)
 
-    def delete_notes(self, notes: List[Note]) -> None:
-        """
-        Delete multiple notes from the vault.
+    def delete_note(self, path: str) -> None:
+        """Delete a note from the vault.
 
         Args:
-            notes (List[Note]): A list of notes to be deleted.
-
-        Raises:
-            FileOperationError: If there's an error during deletion of any note.
+            path: The path to the note.
         """
-        for note in notes:
-            self.delete_note(note)
+        note_path = self.vault_path / path
+        if note_path.exists():
+            note_path.unlink()
+        if path in self.notes:
+            del self.notes[path]
+
+    def get_empty_folders(self) -> List[str]:
+        """Get all empty folders in the vault."""
+        empty_folders = []
+        for folder in self.vault_path.rglob("*"):
+            if folder.is_dir():
+                try:
+                    rel_path = str(folder.relative_to(self.vault_path))
+                    if not list(folder.iterdir()):
+                        empty_folders.append(rel_path)
+                except ValueError:
+                    continue
+        return empty_folders
+
+    def get_empty_notes(self) -> List[Note]:
+        """Get all notes with zero word count."""
+        return [note for note in self.notes.values() if note.word_count == 0]
+
+    def get_small_notes(self, min_words: int = 50) -> List[Note]:
+        """Get notes with fewer than min_words words."""
+        return [note for note in self.notes.values() if 0 < note.word_count < min_words]
+
+    def get_broken_links(self) -> List[Note]:
+        """Get notes with broken links."""
+        broken_notes = []
+        note_paths = {note.path for note in self.notes.values()}
+        for note in self.notes.values():
+            for link in note.links:
+                target_path = f"{link.target}.md"
+                if target_path not in note_paths:
+                    broken_notes.append(note)
+                    break
+        return broken_notes
+
+    def get_orphan_notes(self, include_empty: bool = False) -> List[Note]:
+        """Get orphaned notes (not linked from anywhere)."""
+        linked_paths = set()
+        for note in self.notes.values():
+            for link in note.links:
+                linked_paths.add(f"{link.target}.md")
+
+        orphan_notes = []
+        for note in self.notes.values():
+            if note.path not in linked_paths:
+                if include_empty:
+                    orphan_notes.append(note)
+                elif note.word_count > 0:
+                    orphan_notes.append(note)
+        return orphan_notes
+
+    def get_all_tags(self) -> Dict[str, int]:
+        """Get all tags and their usage count."""
+        tag_counts: Dict[str, int] = {}
+        for note in self.notes.values():
+            for tag in note.tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        return tag_counts
+
+    def get_notes_by_tag(self, tag: str) -> List[Note]:
+        """Get all notes with a specific tag."""
+        tag = tag.lstrip('#')
+        return [note for note in self.notes.values() if tag in note.tags]
+
+    def search_notes(self, query: str, case_sensitive: bool = False) -> List[Note]:
+        """Search for notes containing a query string."""
+        if not case_sensitive:
+            query = query.lower()
+        matching_notes = []
+        for note in self.notes.values():
+            content = note.content if case_sensitive else note.content.lower()
+            title = note.title if case_sensitive else note.title.lower()
+            if query in content or query in title:
+                matching_notes.append(note)
+        return matching_notes
 
 
 class ObsidianContext:
+    """A singleton context for the Obsidian vault."""
+
     _instance = None
 
-    def __new__(cls, config_path: str = "config.yaml"):
+    def __new__(cls) -> "ObsidianContext":
+        """Create a new ObsidianContext instance."""
         if cls._instance is None:
-            cls._instance = super(ObsidianContext, cls).__new__(cls)
-            cls._instance.config = Config(config_path)
-            cls._instance.vault = Vault(cls._instance.config)
+            cls._instance = super().__new__(cls)
+            cls._instance.vault = None
         return cls._instance
+
+    def __init__(self) -> None:
+        """Initialize the context."""
+        if self.vault is None:
+            self.vault = Vault(Path.cwd())
+
+    def set_vault_path(self, vault_path: Union[str, Path]) -> None:
+        """Set the vault path and initialize the vault.
+
+        Args:
+            vault_path: The path to the vault directory.
+        """
+        self.vault = Vault(vault_path)
 
     def run(self, command_handler: Callable[[str, "ObsidianContext"], None]) -> None:
         """Run the Obsidian CLI application."""

@@ -10,5 +10,18 @@
     "**/.coverage": true,
     "**/htmlcov": true,
     "**/.aider*": true
-  }
+  },
+  "python.testing.pytestArgs": [
+    "tests"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.testing.nosetestsEnabled": false,
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": false,
+  "python.linting.mypyEnabled": false,
+  "python.linting.ruffEnabled": true,
+  "editor.formatOnSave": true,
+  "python.formatting.provider": "black"
 }

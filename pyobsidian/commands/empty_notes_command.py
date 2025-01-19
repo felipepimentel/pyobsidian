@@ -1,26 +1,28 @@
+"""Empty notes command for PyObsidian."""
 from typing import List
 
 import click
 
-from ..core import Note, Vault, obsidian_context
-from ..ui_handler import handle_command_action
+from ..core import Note, obsidian_context
+from ..ui_handler import display_empty_notes
 
 
-def get_empty_notes(vault: "Vault", threshold: int) -> List[Note]:
-    return [note for note in vault.get_all_notes() if note.file_size < threshold]
+def empty_notes_impl() -> List[Note]:
+    """Find empty notes in the vault."""
+    empty_notes = []
+    for note in obsidian_context.vault.get_all_notes():
+        if note.word_count == 0:
+            empty_notes.append(note)
+    return empty_notes
 
 
-@click.command()
-@click.option("--delete", is_flag=True, help="Delete the identified empty notes")
-def empty_notes_command(delete: bool) -> None:
-    """Identify empty notes."""
-    empty_notes = get_empty_notes(
-        obsidian_context.vault, obsidian_context.config.get("empty_note_threshold", 10)
-    )
-
-    handle_command_action(items=empty_notes, delete=delete)
+@click.command(name="empty-notes")
+def empty_notes() -> None:
+    """List empty notes in the vault."""
+    empty_notes = empty_notes_impl()
+    display_empty_notes(empty_notes)
 
 
 def register_command(cli: click.Group) -> None:
-    """Register the empty notes command to the CLI group."""
-    cli.add_command(empty_notes_command, name="empty-notes")
+    """Register the empty-notes command to the CLI group."""
+    cli.add_command(empty_notes)

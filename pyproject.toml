@@ -5,7 +5,7 @@ description = "Um gerenciador para o Obsidian com vários recursos para o dia a 
 authors = ["Felipe Pimentel <fpimentel88@gmail.com>"]
 
 [tool.poetry.dependencies]
-python = "^3.12.3"
+python = ">=3.10.0,<4.0.0"
 click = "^8.0.0"
 markdown = "^3.3.4"
 python-frontmatter = "^1.0.0"
@@ -13,12 +13,26 @@ watchdog = "^2.1.6"
 python-dotenv = "^1.0.0"
 weasyprint = "^52.5"
 markdown2 = "^2.5.0"
-
 rich = "^13.9.2"
-[tool.poetry.dev-dependencies]
-pytest = "^6.2.5"
-black = "^21.9b0"
-flake8 = "^4.0.1"
+pyyaml = "^6.0.1"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.25.2"
+pytest-cov = "^6.0.0"
+pytest-mock = "^3.14.0"
+black = "^24.10.0"
+ruff = "^0.9.1"
+mypy = "^1.14.1"
+bandit = "^1.8.2"
+python-semantic-release = "^9.16.1"
+pre-commit = "^4.0.1"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "^8.1.3"
+sphinx-rtd-theme = "^3.0.2"
+sphinx-autodoc-typehints = "^3.0.0"
+myst-parser = "^4.0.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -26,3 +40,28 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 pyobsidian = "pyobsidian.main:cli"
+
+# Temporarily commented out for debugging
+# [tool.pytest.ini_options]
+# addopts = "--cov=pyobsidian --cov-report=term-missing"
+
+[tool.pytest]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.setuptools]
+packages = ["pyobsidian"]
+
+[project]
+name = "pyobsidian"
+version = "0.1.0"
+description = "A Python library for working with Obsidian vaults"
+requires-python = ">=3.8"
+dependencies = [
+    "click>=8.0",
+    "pytest>=7.0",
+    "pytest-mock>=3.10"
+]

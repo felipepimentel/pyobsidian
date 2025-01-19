@@ -1,50 +1,74 @@
-from typing import List, Tuple
+"""Orphan links command for PyObsidian."""
+from typing import List
+import os
 
 import click
 
-from ..core import obsidian_context
-from ..ui_handler import display_orphan_links
+from ..core import Note, obsidian_context
+from ..ui_handler import display_orphan_notes
+
+
+def orphan_notes_impl(include_empty: bool = False) -> List[Note]:
+    """Find orphaned notes (not linked from anywhere)."""
+    all_notes = obsidian_context.vault.get_all_notes()
+    linked_paths = set()
+    
+    # Collect all linked note paths
+    for note in all_notes:
+        for link in note.links:
+            linked_paths.add(f"{link.target}.md")
+    
+    # Find notes that are not linked from anywhere
+    orphaned_notes = []
+    for note in all_notes:
+        if note.path not in linked_paths:
+            if include_empty or note.word_count > 0:
+                orphaned_notes.append(note)
+    
+    return orphaned_notes
 
 
 @click.command()
-@click.option(
-    "--verbose",
-    "-v",
-    is_flag=True,
-    help="Exibir informações detalhadas sobre os links órfãos.",
-)
-def orphan_links(verbose: bool) -> None:
-    """Detecta links órfãos no vault do Obsidian."""
-    vault = obsidian_context.vault
-    orphans = find_orphan_links(vault)
-    display_orphan_links(orphans, verbose)
+@click.option("--include-empty", is_flag=True, help="Include empty notes in the results.")
+def orphan_notes(include_empty: bool = False) -> None:
+    """Find notes that are not linked from any other note."""
+    linked_notes = set()
+    orphan_notes = []
 
-
-def find_orphan_links(vault) -> List[Tuple[str, List[str]]]:
-    """
-    Encontra links órfãos no vault.
-
-    Args:
-        vault: O objeto Vault do Obsidian.
-
-    Returns:
-        Uma lista de tuplas contendo o nome da nota e seus links órfãos.
-    """
-    all_notes = vault.get_all_notes()
-    note_names = {note.name for note in all_notes}
-    orphans = []
-
-    for note in all_notes:
-        orphan_links = []
+    # First, collect all notes that are linked from other notes
+    for note in obsidian_context.vault.notes.values():
         for link in note.links:
-            if link.target not in note_names:
-                orphan_links.append(link.target)
-        if orphan_links:
-            orphans.append((note.name, orphan_links))
+            # Add both with and without .md extension
+            target_name = link.target
+            linked_notes.add(target_name)
+            linked_notes.add(f"{target_name}.md")
+            if target_name.endswith(".md"):
+                linked_notes.add(target_name[:-3])
 
-    return orphans
+    # Then find notes that are not linked from anywhere
+    for note in obsidian_context.vault.notes.values():
+        note_name = os.path.basename(note.path)
+        note_name_no_ext = os.path.splitext(note_name)[0]
+        
+        # Check if the note is not linked (with or without .md extension)
+        if note_name not in linked_notes and note_name_no_ext not in linked_notes:
+            # Include empty notes only if include_empty is True
+            if include_empty and note.word_count == 0:
+                orphan_notes.append(note)
+            # Include non-empty notes regardless of include_empty flag
+            elif note.word_count > 0:
+                orphan_notes.append(note)
+
+    # Sort orphan notes by path
+    orphan_notes.sort(key=lambda x: x.path)
+
+    # Display results
+    if not orphan_notes:
+        click.echo("No orphan notes found.")
+    else:
+        display_orphan_notes(orphan_notes)
 
 
 def register_command(cli: click.Group) -> None:
-    """Registra o comando orphan-links no grupo CLI."""
-    cli.add_command(orphan_links, name="orphan-links")
+    """Register the orphan-notes command to the CLI group."""
+    cli.add_command(orphan_notes)

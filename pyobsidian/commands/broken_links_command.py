@@ -1,34 +1,42 @@
-import os
-from typing import List, Tuple
+"""Broken links command for PyObsidian."""
+from typing import Dict, List, Tuple
 
 import click
 
-from ..core import Note, Vault, obsidian_context
-from ..ui_handler import handle_command_action
+from ..core import Note, Link, obsidian_context
+from ..ui_handler import display_broken_links
 
 
-def get_broken_links(vault: "Vault") -> List[Tuple[Note, str]]:
-    broken_links = []
-    all_note_filenames = {
-        os.path.basename(note.filename) for note in vault.get_all_notes()
-    }
-
-    for note in vault.get_all_notes():
+def broken_links_impl() -> List[Note]:
+    """Find notes with broken links."""
+    broken_notes = []
+    all_notes = obsidian_context.vault.get_all_notes()
+    note_paths = {note.path for note in all_notes}
+    
+    for note in all_notes:
         for link in note.links:
-            if link not in all_note_filenames:
-                broken_links.append((note, link))
-    return broken_links
+            target_path = f"{link.target}.md"
+            if target_path not in note_paths:
+                broken_notes.append(note)
+                break
+    return broken_notes
 
 
 @click.command()
-@click.option("--delete", is_flag=True, help="Delete the broken links")
-def broken_links_command(delete: bool) -> None:
-    """Identify broken links in notes."""
-    broken_links = get_broken_links(obsidian_context.vault)
-
-    handle_command_action(items=broken_links, delete=delete)
+def broken_links() -> None:
+    """Find broken links in notes."""
+    notes_with_broken_links = []
+    for note in obsidian_context.vault.notes.values():
+        broken_links = []
+        for link in note.links:
+            if not obsidian_context.vault.note_exists(link.target):
+                broken_links.append(link)
+        if broken_links:
+            notes_with_broken_links.append((note, broken_links))
+    
+    display_broken_links(notes_with_broken_links)
 
 
 def register_command(cli: click.Group) -> None:
-    """Register the broken links command to the CLI group."""
-    cli.add_command(broken_links_command, name="broken-links")
+    """Register the broken-links command to the CLI group."""
+    cli.add_command(broken_links)

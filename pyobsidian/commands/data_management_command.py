@@ -1,43 +1,59 @@
-import re
-from collections import defaultdict
-from typing import Dict, List
+"""Data management command for PyObsidian."""
+import os
+import shutil
+from datetime import datetime
 
 import click
 
 from ..core import obsidian_context
-from ..ui_handler import display_sensitive_data
+from ..ui_handler import display_success, display_error
+from .base_command import BaseCommand
 
 
-@click.group()
-def data_management() -> None:
-    """Commands for data management and security."""
-    pass
+@click.command(cls=BaseCommand, name="create-backup")
+def create_backup() -> None:
+    """Create a backup of the vault."""
+    backup_path = obsidian_context.vault.create_backup()
+    click.echo(f"Backup created at: {backup_path}")
 
 
-@data_management.command()
-@click.option("--verbose", is_flag=True, help="Show detailed pattern matches")
-def detect_sensitive_data(verbose: bool) -> None:
-    """Identify notes containing potentially sensitive information."""
+@click.command(cls=BaseCommand, name="vault-stats")
+def vault_stats() -> None:
+    """Display vault statistics."""
     vault = obsidian_context.vault
     notes = vault.get_all_notes()
-    sensitive_patterns = {
-        "Credit Card": r"\b(?:\d{4}[-\s]?){3}\d{4}\b",
-        "Email": r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
-        "SSN": r"\b(?:\d{3}-\d{2}-\d{4}|\d{9})\b",
-    }
-    sensitive_notes: Dict[str, Dict[str, List[str]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
-
+    
+    total_notes = len(notes)
+    total_words = sum(note.word_count for note in notes)
+    total_links = sum(len(note.links) for note in notes)
+    
+    all_tags = set()
     for note in notes:
-        for pattern_name, pattern in sensitive_patterns.items():
-            matches = re.findall(pattern, note.content)
-            if matches:
-                sensitive_notes[note.title][pattern_name].extend(matches)
+        all_tags.update(note.tags)
+    total_tags = len(all_tags)
+    
+    # Use display_success for each line to ensure proper output handling
+    display_success("Vault Statistics:")
+    display_success(f"Total notes: {total_notes}")
+    display_success(f"Total words: {total_words}")
+    display_success(f"Total links: {total_links}")
+    display_success(f"Total tags: {total_tags}")
 
-    display_sensitive_data(sensitive_notes, verbose)
+
+@click.command(cls=BaseCommand, name="export-notes")
+@click.option("--format", type=click.Choice(["markdown", "html"]), default="markdown", help="Export format")
+def export_notes(format: str) -> None:
+    """Export notes to markdown or HTML."""
+    if format == "markdown":
+        obsidian_context.vault.export_to_markdown()
+        click.echo("Notes exported to markdown")
+    else:
+        obsidian_context.vault.export_to_html()
+        click.echo("Notes exported to HTML")
 
 
-def register_command(cli: click.Group) -> None:
-    """Register the data management commands to the CLI group."""
-    cli.add_command(data_management)
+def register_commands(cli: click.Group) -> None:
+    """Register data management commands to the CLI group."""
+    cli.add_command(create_backup)
+    cli.add_command(export_notes)
+    cli.add_command(vault_stats)
