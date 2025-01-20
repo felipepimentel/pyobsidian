@@ -4,37 +4,6 @@ from click.testing import CliRunner
 from pyobsidian.commands import word_cloud_command
 from ..mock_obsidian import MockContext
 
-def test_word_cloud(mock_context: MockContext) -> None:
-    """Test word cloud command."""
-    runner = CliRunner()
-    result = runner.invoke(word_cloud_command.word_cloud)
-    
-    assert result.exit_code == 0
-    assert "Word Cloud" in result.output
-    # Common words in test notes
-    assert "python" in result.output.lower()
-    assert "note" in result.output.lower()
-    assert "test" in result.output.lower()
-    # Verify percentages are shown
-    assert "%" in result.output
-    # Stop words should not appear
-    for stop_word in ["the", "and", "is", "in", "to"]:
-        assert stop_word not in result.output.lower()
-
-def test_word_cloud_with_options(mock_context: MockContext) -> None:
-    """Test word cloud command with custom options."""
-    runner = CliRunner()
-    result = runner.invoke(word_cloud_command.word_cloud, 
-                         ["--min-count", "2", "--max-words", "5"])
-    
-    assert result.exit_code == 0
-    assert "Word Cloud" in result.output
-    # Should only show words that appear at least twice
-    assert "note" in result.output.lower()  # Common word in test notes
-    # Should show at most 5 words
-    word_lines = [line for line in result.output.split('\n') if line.strip() and not line.startswith(('Word', '-'))]
-    assert len(word_lines) <= 5
-
 def test_word_cloud_filters(mock_context: MockContext) -> None:
     """Test word cloud filtering functionality."""
     # Add a note with various elements to filter

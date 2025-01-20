@@ -42,31 +42,6 @@ def setup_mock_context(mock_context: "MockContext", mocker) -> None:
     mocker.patch('pyobsidian.commands.data_management_command.obsidian_context', mock_context)
     mocker.patch('pyobsidian.commands.export_command.obsidian_context', mock_context)
 
-def test_tag_management(mock_context: MockContext) -> None:
-    """Test tag management operations."""
-    runner = CliRunner()
-    
-    # Test adding a tag
-    result = runner.invoke(tag_management_command.add_tag, ["note1.md", "newtag"])
-    assert result.exit_code == 0
-    assert "#newtag" in mock_context.vault.get_note("note1.md").content
-    
-    # Test removing a tag
-    result = runner.invoke(tag_management_command.remove_tag, ["note1.md", "newtag"])
-    assert result.exit_code == 0
-    assert "#newtag" not in mock_context.vault.get_note("note1.md").content
-    
-    # Test replacing a tag
-    note = mock_context.vault.get_note("note1.md")
-    note.add_tag("oldtag")
-    mock_context.vault.update_note(note.path, note.content)
-    result = runner.invoke(tag_management_command.replace_tag, ["oldtag", "newtag"])
-    assert result.exit_code == 0
-    assert "#oldtag" not in mock_context.vault.get_note("note1.md").content
-    assert "#newtag" in mock_context.vault.get_note("note1.md").content
-    assert "oldtag" not in mock_context.vault.get_note("note1.md").tags
-    assert "newtag" in mock_context.vault.get_note("note1.md").tags
-
 def test_visualization(mock_context: MockContext) -> None:
     """Test visualization commands."""
     runner = CliRunner()

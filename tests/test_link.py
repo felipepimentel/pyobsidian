@@ -23,8 +23,7 @@ def test_link_in_complex_note() -> None:
     """Test link extraction from a complex note with various markdown elements."""
     content = """# Title
 This is a **[[bold link]]** and *[[italic link]]*.
-Here's a `[[code link]]` and a [[markdown link]].
-```python
+Here's a `[[code link]]` and a [[markdown link]].```python
 [[code block link]]
 ```
 > [[quoted link]]

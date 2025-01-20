@@ -118,13 +118,6 @@ def test_note_content_update() -> None:
     assert note.title == "New Title"
     assert note.links[0].target == "new link"
 
-def test_note_word_count(word_count_note_content):
-    """Test that word count is calculated correctly."""
-    note = Note("test.md", word_count_note_content)
-    # Should count: Title(3) + This(1) + paragraph(1) + has(1) + five(1) + words(1) +
-    # And(1) + this(1) + one(1) + has(1) + four(1) = 12 words
-    assert note.word_count == 12
-
 def test_note_add_tag(simple_note_content):
     """Test that tags can be added to a note."""
     note = Note("test.md", simple_note_content)

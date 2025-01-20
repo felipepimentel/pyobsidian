@@ -123,35 +123,41 @@ class Note:
         """Extract links from the note's content."""
         links = []
         seen = set()
-        # First remove code blocks
+        
+        # First remove code blocks and inline code
         content = self._remove_code_blocks(self._content)
+        content = self._remove_inline_code(content)
+        
         # Find all links in the remaining content
         for match in re.finditer(r'\[\[([^\]]+)\]\]', content):
             target = match.group(1)
             if '|' in target:
                 target, alias = target.split('|', 1)
             else:
-                alias = target
-            # Handle markdown links inside wikilinks
-            if target.startswith('[') and '](' in target:
-                target = target[1:].split('](')[0]
+                alias = None
+            
             # Clean up target and alias
             target = target.strip()
-            alias = alias.strip()
-            # Handle complex paths
-            if '/' in target:
-                target = target.split('/')[-1]
+            if alias:
+                alias = alias.strip()
+            
             # Handle quoted links
             if target.startswith('"') and target.endswith('"'):
                 target = target[1:-1]
+            
             # Handle emphasis markers
             target = re.sub(r'(\*\*|\*|__|_|`|```)', '', target)
+            if alias:
+                alias = re.sub(r'(\*\*|\*|__|_|`|```)', '', alias)
+            
             # Handle markdown links
             if target.startswith('[') and target.endswith(']'):
                 target = target[1:-1]
+            
             if target not in seen:
                 seen.add(target)
-                links.append(Link(target, alias))
+                links.append(Link(self.path, target, alias))
+        
         return sorted(links)
 
     def _remove_code_blocks(self, content: str) -> str:
@@ -180,6 +186,13 @@ class Note:
 
     def _calculate_word_count(self) -> int:
         """Calculate the number of words in the note's content."""
+        # Get title words first
+        title_words = []
+        if self.title:
+            title = re.sub(r'[^\w\s]|[\d]', ' ', self.title)
+            title_words = [w for w in title.split() if len(w) > 1 and any(c.isalpha() for c in w)]
+        
+        # Process content
         content = self._content
         # Remove code blocks and inline code
         content = self._remove_code_blocks(content)
@@ -187,7 +200,7 @@ class Note:
         # Remove tags and links
         content = self._remove_tags(content)
         content = self._remove_links(content)
-        # Remove headers
+        # Remove headers (including title)
         content = self._remove_headers(content)
         # Remove emphasis markers
         content = re.sub(r'(\*\*|\*|__|_)', '', content)
@@ -196,20 +209,56 @@ class Note:
         # Normalize whitespace
         content = self._normalize_whitespace(content)
         # Split into words and filter
-        words = [w for w in content.split() if len(w) > 1 and any(c.isalpha() for c in w)]
-        # Remove duplicates
-        words = list(dict.fromkeys(words))
-        return len(words)
+        content_words = [w for w in content.split() if len(w) > 1 and any(c.isalpha() for c in w)]
+        
+        # Return total count
+        return len(title_words) + len(content_words)
 
     def add_tag(self, tag: str) -> None:
         """Add a tag to the note."""
-        if not tag.startswith('#'):
-            tag = f'#{tag}'
-        if tag not in self._content:
-            if self._content.strip():
-                self._content = self._content.rstrip() + f' {tag}\n'
-            else:
-                self._content = f'{tag}\n'
+        # Strip # from tag if present
+        tag = tag.lstrip('#')
+        
+        # Check if tag already exists
+        if tag in self.tags:
+            return
+        
+        # Add tag at the end of the first line
+        lines = self._content.splitlines() or ['']
+        if lines[0].strip():
+            lines[0] = lines[0].strip() + f' #{tag}'
+        else:
+            lines[0] = f'#{tag}'
+        
+        # Update content
+        self._content = '\n'.join(lines)
+        if not self._content.endswith('\n'):
+            self._content += '\n'
+        
+        # Update cached properties
+        self._title = self._extract_title()
+        self._tags = self._extract_tags()
+        self._links = self._extract_links()
+
+    def remove_tag(self, tag: str) -> None:
+        """Remove a tag from the note."""
+        # Strip # from tag if present
+        tag = tag.lstrip('#')
+        
+        # Check if tag exists
+        if tag not in self.tags:
+            return
+        
+        # Remove tag using regex
+        self._content = re.sub(rf'\s*#({re.escape(tag)})(?![\\w-])', '', self._content)
+        self._content = re.sub(r'\s+', ' ', self._content).strip()
+        if not self._content.endswith('\n'):
+            self._content += '\n'
+        
+        # Update cached properties
+        self._title = self._extract_title()
+        self._tags = self._extract_tags()
+        self._links = self._extract_links()
 
     @property
     def title(self) -> str:
@@ -238,6 +287,13 @@ class Note:
     def __repr__(self) -> str:
         """Get a string representation of the note."""
         return f"Note(path='{self.path}', title='{self.title}')"
+
+    def save(self) -> None:
+        """Save the note's content to disk."""
+        if not hasattr(self, '_vault'):
+            import pyobsidian.core
+            self._vault = pyobsidian.core.obsidian_context.vault
+        self._vault.update_note(self.path, self.content)
 
 class Config:
     """Mock configuration."""
@@ -320,7 +376,9 @@ class MockVault:
 
     def update_note(self, path: str, content: str) -> None:
         """Update a note's content."""
-        if path in self._notes:
+        if path not in self._notes:
+            self._notes[path] = Note(path, content)
+        else:
             self._notes[path].update_content(content)
 
     def get_orphan_notes(self) -> List[Note]:
@@ -391,15 +449,11 @@ class MockVault:
                 matching_notes.append(note)
         return sorted(matching_notes)
 
-    def _get_note(self, note_path: str) -> Note:
-        """Get a note by its path."""
-        if note_path not in self._notes:
-            raise ValueError(f"Note {note_path} not found")
-        return self._notes[note_path]
-
     def get_note(self, note_path: str) -> Note:
         """Get a note by its path."""
-        return self._get_note(note_path)
+        if note_path not in self._notes:
+            self._notes[note_path] = Note(note_path, "")
+        return self._notes[note_path]
 
     def _setup_test_notes(self):
         """Set up test notes with specific content."""
@@ -407,7 +461,7 @@ class MockVault:
         self.add_note("note1.md", """# Test Note
 This is a test note. #python #testing #compound-tag #123numeric
 It has some content about Python programming.
-This note links to [[note2]] and [[note3]].""")
+This note links to [[note2]] and [[note3]] and [[non-existent-note]].""")
         
         self.add_note("note2.md", "")  # Empty note
         
@@ -471,42 +525,7 @@ class MockContext:
     def __init__(self) -> None:
         """Initialize the mock context."""
         self._vault = MockVault()
-        
-        # Add test notes
-        self._vault.add_note("note1.md", "# Test Note\nThis is a test note. #python #testing #compound-tag #123numeric")
-        self._vault.add_note("note2.md", "")  # Empty note
-        self._vault.add_note("note3.md", "This note links to [[note1]] and [[non-existent-note]].")
-        self._vault.add_note("note4.md", "A brief note about #programming.")
-        self._vault.add_note("note5.md", "Another brief note.")
-        self._vault.add_note("note6.md", "A note about #programming")  # 4 words
-        self._vault.add_note("folder1/nested_note.md", "This is a nested note.")
-        
-        # Add notes for find_similar tests
-        self._vault.add_note("python_note.md", "# Python\nThis is a note about Python programming concepts.")
-        self._vault.add_note("programming_note.md", "# Programming\nThis note covers general programming concepts.")
-        self._vault.add_note("unrelated_note.md", "# Cooking\nThis is about cooking recipes.")
-        self._vault.add_note("source.md", "# Source Note\nThis is the source note for testing similarity.")
-        self._vault.add_note("empty.md", "")  # Empty note for similarity test
-        
-        # Add notes for link tests
-        self._vault.add_note("complex_note.md", """# Complex Note
-This note has various link types:
-- [[bold link|**Bold Link**]]
-- [[italic link|*Italic Link*]]
-- [[code link|`Code Link`]]
-- [[code block link|```Code Block Link```]]
-- [[markdown link|[Markdown Link](http://example.com)]]
-- [[quoted link|"Quoted Link"]]
-- [[complex/path/to/note]]
-""")
-
-        # Add notes for table tests
-        self._vault.add_note("table_note.md", """# Table Note
-| Column 1 | Column 2 |
-|----------|----------|
-| [[link1]] | [[link2]] |
-| [[link3|Alias]] | [[link4]] |
-""")
+        self._config = Config()
 
     @property
     def vault(self) -> MockVault:
@@ -516,7 +535,7 @@ This note has various link types:
     @property
     def config(self) -> Config:
         """Get the mock config."""
-        return Config()
+        return self._config
 
     @vault.setter
     def vault(self, value: MockVault) -> None:
@@ -535,9 +554,9 @@ mock_core.Note = Note
 mock_core.Link = Link
 mock_core.Config = Config
 mock_core.Vault = MockVault
-mock_core.ObsidianContext = Mock()
-mock_core.ObsidianContext.return_value = MockContext()
-mock_core.obsidian_context = MockContext()
+mock_core.ObsidianContext = MockContext
+mock_context = MockContext()
+mock_core.obsidian_context = mock_context
 
 # Add the mock module to sys.modules
 import sys
