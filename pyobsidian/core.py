@@ -176,42 +176,52 @@ class Note:
     @property
     def word_count(self) -> int:
         """Calculate the number of words in the note content."""
-        # Remove code blocks and inline code
+        # Remove code blocks
         content = self._remove_code_blocks(self._content)
         
+        # Remove links and tags
+        content = re.sub(r'\[\[.*?\]\]', '', content)  # Remove links
+        content = re.sub(r'#\w+', '', content)  # Remove tags
+        
         # Remove headers
-        content = re.sub(r'^#.*$', '', content, flags=re.MULTILINE)
+        content = re.sub(r'^#+\s.*$', '', content, flags=re.MULTILINE)
         
-        # Remove links
-        content = re.sub(r'\[\[.*?\]\]', '', content)
+        # Remove emphasis markers
+        content = re.sub(r'[*_`]', '', content)
         
-        # Remove tags
-        content = re.sub(r'#[\w-]+', '', content)
+        # Remove punctuation and normalize whitespace
+        content = re.sub(r'[^\w\s]', ' ', content)
+        content = re.sub(r'\s+', ' ', content)
         
-        # Remove emphasis markers without removing their content
-        content = re.sub(r'(\*\*|\*|__|_)', '', content)
-        
-        # Remove extra whitespace and normalize
-        content = re.sub(r'\s+', ' ', content).strip()
-        
-        # Split into words and filter out non-word tokens
-        words = [w for w in content.split() if any(c.isalnum() for c in w)]
-        
+        # Split into words and count non-empty ones
+        words = [word for word in content.split() if word.strip()]
         return len(words)
 
     def _extract_links(self) -> List[Link]:
-        """Extract internal links from the note content."""
+        """Extract all links from the note content."""
         links = []
-        pattern = r'\[\[(.*?)(?:\|(.*?))?\]\]'
         
-        # First remove all code blocks
+        # First remove code blocks
         content = self._remove_code_blocks(self._content)
         
-        # Find all links in the remaining content
-        for match in re.finditer(pattern, content):
+        # Match [[link]] or [[link|alias]] patterns
+        link_pattern = r'\[\[(.*?)(?:\|(.*?))?\]\]'
+        matches = re.finditer(link_pattern, content)
+        
+        for match in matches:
             target = match.group(1).strip()
             alias = match.group(2).strip() if match.group(2) else None
-            links.append(Link(self, target, alias))
+            
+            # Strip formatting characters from target and alias
+            target = re.sub(r'[*_"`]', '', target)
+            if alias:
+                alias = re.sub(r'[*_"`]', '', alias)
+            
+            # Skip links in code blocks
+            if '```' in target or '`' in target:
+                continue
+            
+            links.append(Link(target=target, alias=alias))
         
         return links
 

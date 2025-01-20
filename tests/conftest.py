@@ -1,5 +1,5 @@
 """Test fixtures for PyObsidian."""
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import pytest
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
@@ -48,95 +48,157 @@ def mock_vault(mocker):
     # Create a class with all the methods we want to mock
     class MockVault:
         def __init__(self):
-            self.vault_path = Path("/mock/vault")
-            self.notes = {}
-            self.folders = {
-                "/mock/vault": [],
-                "/mock/vault/folder1": [],
-                "/mock/vault/folder2": []
+            self._notes = {}
+            self._setup_test_notes()
+
+        def _setup_test_notes(self):
+            """Set up test notes with known word counts."""
+            # note1.md: A test note with many words
+            self._notes["note1.md"] = Note("note1.md", """# Test Note
+This is a test note with many words. It has links to [[note2]] and [[note3]].
+It also has some tags like #test and #python.
+This note should have more than 5 words to test the small notes feature.""")
+
+            # note2.md: An empty note
+            self._notes["note2.md"] = Note("note2.md", "")
+
+            # note3.md: A note about Python development
+            self._notes["note3.md"] = Note("note3.md", """# Python Development
+This note discusses Python development and testing.
+It has a link back to [[note1]] and includes examples of code:
+```python
+def test():
+    pass
+```
+This note also has more than 5 words.""")
+
+            # note4.md: A short note
+            self._notes["note4.md"] = Note("note4.md", "Just four words here. #short")
+
+            # note5.md: A brief text
+            self._notes["note5.md"] = Note("note5.md", "Just three words.")
+
+            # note6.md: A note about programming
+            self._notes["note6.md"] = Note("note6.md", "Two words.")
+
+            # folder1/nested_note.md: A note about Python projects
+            self._notes["folder1/nested_note.md"] = Note("folder1/nested_note.md", "Five words in this note.")
+
+            # folder2/another_note.md: Another note
+            self._notes["folder2/another_note.md"] = Note("folder2/another_note.md", "This note has more than five words.")
+
+            # complex_note.md: A note with formatted links
+            self._notes["complex_note.md"] = Note("complex_note.md", """# Complex Note
+This note has various types of links:
+- [[*italic link*]]
+- [[**bold link**]]
+- [[`code link`]]
+- [["quoted link"]]
+- [[spaced link name]]
+- [[complex/path/to/note]]""")
+
+            # python_note.md: A note about Python programming
+            self._notes["python_note.md"] = Note("python_note.md", """# Python Programming
+This note covers Python programming concepts.
+It includes examples and best practices.""")
+
+            # programming_note.md: A note about programming
+            self._notes["programming_note.md"] = Note("programming_note.md", """# Programming
+This note covers general programming concepts.
+It includes examples and best practices.""")
+
+            # unrelated_note.md: A note about cooking
+            self._notes["unrelated_note.md"] = Note("unrelated_note.md", """# Cooking
+This note is about cooking and recipes.
+It has nothing to do with programming.""")
+
+            # source.md: A source note for similarity testing
+            self._notes["source.md"] = Note("source.md", """# Source Note
+This is a source note for testing similarity.
+It contains specific content for comparison.""")
+
+            # empty.md: An empty note for similarity testing
+            self._notes["empty.md"] = Note("empty.md", "")
+
+        def exists(self, path: str) -> bool:
+            return path in self._notes
+
+        def is_file(self, path: str) -> bool:
+            return path in self._notes
+
+        def is_dir(self, path: str) -> bool:
+            return path == "/mock/vault/empty_folder"
+
+        def get_all_files(self) -> List[str]:
+            return list(self._notes.keys())
+
+        def get_folders(self) -> List[str]:
+            return ["/mock/vault/empty_folder"]
+
+        def read_file(self, path: str) -> str:
+            return self._notes[path].content if path in self._notes else ""
+
+        def write_file(self, path: str, content: str) -> None:
+            self._notes[path] = Note(path, content)
+
+        def get_note(self, path: str) -> Note:
+            if path not in self._notes:
+                raise ValueError(f"Note {path} not found")
+            return self._notes[path]
+
+        def get_all_notes(self) -> List[Note]:
+            return list(self._notes.values())
+
+        def get_all_tags(self) -> Dict[str, int]:
+            tag_counts = {}
+            for note in self._notes.values():
+                for tag in note.tags:
+                    tag = tag.lstrip('#')
+                    tag_counts[tag] = tag_counts.get(tag, 0) + 1
+            return tag_counts
+
+        def get_notes_by_tag(self, tag: str) -> List[Note]:
+            tag = f"#{tag.lstrip('#')}"
+            return [note for note in self._notes.values() if tag in note.tags]
+
+        def update_note(self, path: str, content: str) -> None:
+            if path not in self._notes:
+                raise ValueError(f"Note {path} not found")
+            self._notes[path].update_content(content)
+
+        def get_empty_notes(self) -> List[Note]:
+            return [note for note in self._notes.values() if not note.content.strip()]
+
+        def get_small_notes(self, max_words: int) -> List[Note]:
+            return [note for note in self._notes.values() if note.word_count <= max_words]
+
+        def get_broken_links(self) -> List[Tuple[str, str]]:
+            broken_links = []
+            for note in self._notes.values():
+                for link in note.links:
+                    if not self.exists(link.target):
+                        broken_links.append((note.path, link.target))
+            return broken_links
+
+        def get_orphan_notes(self) -> List[Note]:
+            linked_notes = set()
+            for note in self._notes.values():
+                for link in note.links:
+                    linked_notes.add(link.target)
+            return [note for note in self._notes.values() if note.path not in linked_notes]
+
+        def get_statistics(self) -> Dict[str, int]:
+            return {
+                "total_notes": len(self._notes),
+                "total_tags": len(self.get_all_tags()),
+                "empty_notes": len(self.get_empty_notes()),
+                "broken_links": len(self.get_broken_links()),
+                "orphan_notes": len(self.get_orphan_notes())
             }
-            
-            # Initialize with test notes
-            test_notes = {
-                "note1.md": """# Python Note
-This is a note about #python and #testing.
-It links to [[note2]] and [[note3]].""",
-                
-                "note2.md": """# Empty Note
-""",
-                
-                "note3.md": """# Broken Link Note
-This note has a [[non-existent-note]] link.
-It also links to [[note1]].""",
-                
-                "note4.md": """# Small Note
-Just a few words.""",
-                
-                "note5.md": """# Documentation Note
-A note about #documentation.""",
-                
-                "note6.md": """# Python Programming
-A note about #programming.""",
-                
-                "folder1/nested_note.md": """# Nested Note
-This note is in a folder.""",
-                
-                "folder2/another_note.md": """# Another Note
-This is another nested note."""
-            }
-            
-            # Create notes in memory
-            for path, content in test_notes.items():
-                note = Note(path, content)
-                self.notes[path] = note
-                
-                # Update folder structure
-                folder = str(Path(path).parent)
-                if folder != ".":
-                    full_folder_path = str(self.vault_path / folder)
-                    if full_folder_path not in self.folders:
-                        self.folders[full_folder_path] = []
-                    self.folders[full_folder_path].append(path)
-        
-        def exists(self, path): return path in self.notes
-        def is_file(self, path): return path in self.notes
-        def is_dir(self, path): return str(path) in self.folders
-        def get_note(self, path): return self.notes.get(path)
-        def get_all_notes(self): return list(self.notes.values())
-        def _get_all_files(self): return list(self.notes.keys())
-        def get_folders(self): return list(self.folders.keys())
-        def read_file(self, path): return self.notes[path].content if path in self.notes else ""
-        def write_file(self, path, content): self.notes.update({path: Note(path, content)})
-        def create_graph_visualization(self): return None
-        def create_tag_cloud(self): return None
-        def export_to_markdown(self, path): return None
-        def export_to_html(self, path): return None
-        def create_backup(self): return "/mock/backup/path"
-        def get_statistics(self): return {
-            "total_notes": len(self.notes),
-            "total_tags": sum(len(note.tags) for note in self.notes.values()),
-            "total_links": sum(len(note.links) for note in self.notes.values()),
-            "total_folders": len(self.folders)
-        }
-        def note_exists(self, path): return path in self.notes
-        def get_empty_notes(self): return [note for note in self.notes.values() if not note.content.strip()]
-        def get_small_notes(self, min_words=50): return [note for note in self.notes.values() if note.word_count < min_words]
-        def get_broken_links(self): return [note for note in self.notes.values() if any(not self.note_exists(link.target) for link in note.links)]
-        def get_orphan_notes(self, include_empty=False): 
-            all_links = {link.target for note in self.notes.values() for link in note.links}
-            return [note for note in self.notes.values() if note.path not in all_links and (include_empty or note.content.strip())]
-        def get_all_tags(self): return {tag: sum(1 for note in self.notes.values() if tag in note.tags) for tag in {tag for note in self.notes.values() for tag in note.tags}}
-        def get_notes_by_tag(self, tag): return [note for note in self.notes.values() if tag in note.tags]
-        def search_notes(self, query, case_sensitive=False): 
-            if not case_sensitive:
-                query = query.lower()
-                return [note for note in self.notes.values() if query in note.content.lower()]
-            return [note for note in self.notes.values() if query in note.content]
-    
+
     # Create the mock with our custom class as spec
     vault = mocker.Mock(spec=MockVault())
     vault.vault_path = Path("/mock/vault")
-    vault.notes = {}
     vault.folders = {
         "/mock/vault": [],
         "/mock/vault/folder1": [],
@@ -144,23 +206,22 @@ This is another nested note."""
     }
     
     # Set up all the mock methods
-    vault.exists.side_effect = lambda path: path in vault.notes
-    vault.is_file.side_effect = lambda path: path in vault.notes
+    vault.exists.side_effect = lambda path: path in vault._notes
+    vault.is_file.side_effect = lambda path: path in vault._notes
     vault.is_dir.side_effect = lambda path: str(path) in vault.folders
-    vault.get_note.side_effect = lambda path: vault.notes.get(path)
-    vault.get_all_notes.side_effect = lambda: list(vault.notes.values())
-    vault._get_all_files.side_effect = lambda: list(vault.notes.keys())
+    vault.get_note.side_effect = lambda path: vault._notes.get(path)
+    vault.get_all_notes.side_effect = lambda: list(vault._notes.values())
+    vault.get_all_files.side_effect = lambda: list(vault._notes.keys())
     vault.get_folders.side_effect = lambda: list(vault.folders.keys())
-    vault.read_file.side_effect = lambda path: vault.notes[path].content if path in vault.notes else ""
-    vault.write_file.side_effect = lambda path, content: vault.notes.update({path: Note(path, content)})
-    vault.note_exists.side_effect = lambda path: path in vault.notes
-    vault.get_empty_notes.side_effect = lambda: [note for note in vault.notes.values() if not note.content.strip()]
-    vault.get_small_notes.side_effect = lambda min_words=50: [note for note in vault.notes.values() if note.word_count < min_words]
-    vault.get_broken_links.side_effect = lambda: [note for note in vault.notes.values() if any(not vault.note_exists(link.target) for link in note.links)]
-    vault.get_orphan_notes.side_effect = lambda include_empty=False: [note for note in vault.notes.values() if note.path not in {link.target for note in vault.notes.values() for link in note.links} and (include_empty or note.content.strip())]
-    vault.get_all_tags.side_effect = lambda: {tag: sum(1 for note in vault.notes.values() if tag in note.tags) for tag in {tag for note in vault.notes.values() for tag in note.tags}}
-    vault.get_notes_by_tag.side_effect = lambda tag: [note for note in vault.notes.values() if tag in note.tags]
-    vault.search_notes.side_effect = lambda query, case_sensitive=False: [note for note in vault.notes.values() if (query.lower() in note.content.lower() if not case_sensitive else query in note.content)]
+    vault.read_file.side_effect = lambda path: vault._notes[path].content if path in vault._notes else ""
+    vault.write_file.side_effect = lambda path, content: vault._notes.update({path: Note(path, content)})
+    vault.get_empty_notes.side_effect = lambda: [note for note in vault._notes.values() if not note.content.strip()]
+    vault.get_small_notes.side_effect = lambda max_words: [note for note in vault._notes.values() if note.word_count <= max_words]
+    vault.get_broken_links.side_effect = lambda: [note for note in vault._notes.values() if any(not vault.exists(link.target) for link in note.links)]
+    vault.get_orphan_notes.side_effect = lambda: [note for note in vault._notes.values() if note.path not in {link.target for note in vault._notes.values() for link in note.links}]
+    vault.get_all_tags.side_effect = lambda: {tag: sum(1 for note in vault._notes.values() if tag in note.tags) for tag in {tag for note in vault._notes.values() for tag in note.tags}}
+    vault.get_notes_by_tag.side_effect = lambda tag: [note for note in vault._notes.values() if tag in note.tags]
+    vault.search_notes.side_effect = lambda query, case_sensitive=False: [note for note in vault._notes.values() if (query.lower() in note.content.lower() if not case_sensitive else query in note.content)]
     
     # Mock visualization operations
     vault.create_graph_visualization = mocker.Mock(return_value=None)
@@ -175,53 +236,11 @@ This is another nested note."""
     
     # Mock statistics operations
     vault.get_statistics = mocker.Mock(return_value={
-        "total_notes": len(vault.notes),
-        "total_tags": sum(len(note.tags) for note in vault.notes.values()),
-        "total_links": sum(len(note.links) for note in vault.notes.values()),
+        "total_notes": len(vault._notes),
+        "total_tags": sum(len(note.tags) for note in vault._notes.values()),
+        "total_links": sum(len(note.links) for note in vault._notes.values()),
         "total_folders": len(vault.folders)
     })
-    
-    # Initialize test notes
-    test_notes = {
-        "note1.md": """# Python Note
-This is a note about #python and #testing.
-It links to [[note2]] and [[note3]].""",
-        
-        "note2.md": """# Empty Note
-""",
-        
-        "note3.md": """# Broken Link Note
-This note has a [[non-existent-note]] link.
-It also links to [[note1]].""",
-        
-        "note4.md": """# Small Note
-Just a few words.""",
-        
-        "note5.md": """# Documentation Note
-A note about #documentation.""",
-        
-        "note6.md": """# Python Programming
-A note about #programming.""",
-        
-        "folder1/nested_note.md": """# Nested Note
-This note is in a folder.""",
-        
-        "folder2/another_note.md": """# Another Note
-This is another nested note."""
-    }
-    
-    # Create notes in memory
-    for path, content in test_notes.items():
-        note = Note(path, content)
-        vault.notes[path] = note
-        
-        # Update folder structure
-        folder = str(Path(path).parent)
-        if folder != ".":
-            full_folder_path = str(vault.vault_path / folder)
-            if full_folder_path not in vault.folders:
-                vault.folders[full_folder_path] = []
-            vault.folders[full_folder_path].append(path)
     
     return vault
 

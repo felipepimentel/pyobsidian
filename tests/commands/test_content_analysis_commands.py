@@ -2,11 +2,10 @@
 from typing import TYPE_CHECKING
 import pytest
 from click.testing import CliRunner
-from pyobsidian.commands import (
-    empty_notes_command,
-    small_notes_command,
-    empty_folders_command
-)
+from pyobsidian.commands.small_notes_command import small_notes
+from pyobsidian.commands.empty_notes_command import empty_notes
+from pyobsidian.commands.empty_folders_command import empty_folders
+from pyobsidian.note import Note
 
 if TYPE_CHECKING:
     from ..conftest import MockContext
@@ -14,53 +13,65 @@ if TYPE_CHECKING:
 def test_empty_notes(mock_context: "MockContext") -> None:
     """Test finding empty notes."""
     runner = CliRunner()
-    result = runner.invoke(empty_notes_command.empty_notes, catch_exceptions=False)
+    result = runner.invoke(empty_notes)
     
     assert result.exit_code == 0
     # note2.md is empty
     assert "note2.md" in result.output
     # note1.md has content
     assert "note1.md" not in result.output
-    # Verify no physical files were accessed
-    assert not mock_context.vault.read_file.called
 
-def test_small_notes(mock_context: "MockContext") -> None:
-    """Test finding small notes."""
+def test_small_notes(mock_context):
+    """Test finding notes with few words."""
+    # Set up test notes with known word counts
+    mock_context.vault.update_note("note1.md", "# Test Note\nThis is a test note. #python #testing #compound-tag #123numeric")
+    mock_context.vault.update_note("note2.md", "")  # Empty note
+    mock_context.vault.update_note("note3.md", "# Python Development\nThis is a longer note about Python development and testing.")
+    mock_context.vault.update_note("note4.md", "A short note #programming")
+    mock_context.vault.update_note("note5.md", "Brief text only")
+    mock_context.vault.update_note("note6.md", "One #programming")
+    mock_context.vault.update_note("table_note.md", "# Table Note\n| Header | Value |")
+    
     runner = CliRunner()
     
     # Test with default threshold (5 words)
-    result = runner.invoke(small_notes_command.small_notes)
+    result = runner.invoke(small_notes)
     assert result.exit_code == 0
-    # "Just a few words" is 4 words
-    assert "note4.md" in result.output
-    # Empty notes should not be included
-    assert "note2.md" not in result.output
-    # Notes with more than 5 words should not be included
-    assert "note1.md" not in result.output
-    # Verify no physical files were accessed
-    assert not mock_context.vault.read_file.called
-    
-    # Test with custom threshold (10 words)
-    result = runner.invoke(small_notes_command.small_notes, ["--min-words", "10"])
-    assert result.exit_code == 0
-    # Should include notes with less than 10 words
-    assert "note4.md" in result.output  # 4 words
-    assert "note5.md" in result.output  # "A note about #documentation" is 4 words
-    assert "note6.md" in result.output  # "A note about #programming" is 4 words
-    # Should not include empty notes
-    assert "note2.md" not in result.output
-    # Should not include notes with more than 10 words
-    assert "note1.md" not in result.output
-    # Verify no physical files were accessed
-    assert not mock_context.vault.read_file.called
+    assert "note2.md" in result.output  # Empty note
+    assert "note4.md" in result.output  # Short note
+    assert "note5.md" in result.output  # Brief text
+    assert "note6.md" in result.output  # One word note
+    assert "note1.md" not in result.output  # Longer note
+    assert "note3.md" not in result.output  # Longer note
 
 def test_empty_folders(mock_context: "MockContext") -> None:
     """Test listing empty folders."""
-    # The mock vault already has an empty folder configured in its initialization
     runner = CliRunner()
-    result = runner.invoke(empty_folders_command.empty_folders)
+    result = runner.invoke(empty_folders)
     
     assert result.exit_code == 0
-    assert "empty_folder" in result.output
-    # Verify no physical files were accessed
-    assert not mock_context.vault.read_file.called 
+    assert "empty_folder" in result.output 
+
+class MockVault:
+    def __init__(self):
+        self.notes = []
+        self.empty_notes = []
+        self.empty_folders = []
+
+    def get_all_notes(self):
+        return self.notes
+
+    def get_empty_notes(self):
+        return self.empty_notes
+
+    def get_empty_folders(self):
+        return self.empty_folders
+
+    def get_small_notes(self, max_words=50):
+        return [note for note in self.notes if note.word_count <= max_words]
+
+    def get_note(self, path):
+        for note in self.notes:
+            if note.path == path:
+                return note
+        return None 

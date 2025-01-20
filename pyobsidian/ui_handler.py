@@ -21,9 +21,6 @@ def _echo(message: str, err: bool = True) -> None:
 
 def display_table(rows: List[List[str]], headers: List[str], title: Optional[str] = None) -> None:
     """Display data in a table format."""
-    if not rows:
-        return
-    
     # Create table
     table = Table(show_header=True, header_style="bold magenta")
     
@@ -31,11 +28,12 @@ def display_table(rows: List[List[str]], headers: List[str], title: Optional[str
     for header in headers:
         table.add_column(header)
     
-    # Add rows
-    for row in rows:
-        # Convert all values to strings
-        str_row = [str(value) for value in row]
-        table.add_row(*str_row)
+    # Add rows if any
+    if rows:
+        for row in rows:
+            # Convert all values to strings
+            str_row = [str(value) for value in row]
+            table.add_row(*str_row)
     
     # Create console and print
     console = Console()
@@ -44,22 +42,17 @@ def display_table(rows: List[List[str]], headers: List[str], title: Optional[str
     console.print(table)
 
 
-def display_notes(notes: List[Note], title: Optional[str] = None) -> None:
-    """Display a list of notes."""
-    if not notes:
-        _echo("No notes found.")
-        return
-
-    headers = ["Path", "Title", "Words", "Tags"]
+def display_notes(notes: List[Note], title: str = "Notes") -> None:
+    """Display a list of notes in a table format."""
     rows = []
     for note in notes:
         rows.append([
-            note.path,
-            note.title,
+            str(note.path),
+            note.title or "(No title)",
             str(note.word_count),
-            ", ".join(f"#{tag}" for tag in note.tags)
+            ", ".join(f"#{tag}" for tag in sorted(note.tags)) if note.tags else ""
         ])
-    display_table(rows, headers, title)
+    display_table(rows, ["Path", "Title", "Words", "Tags"], title=title)
 
 
 def display_empty_notes(notes: List[Note]) -> None:
@@ -80,7 +73,7 @@ def display_small_notes(notes: List[Note]) -> None:
     # Create table rows
     for note in notes:
         rows.append([
-            note.filename,
+            note.path,
             note.title or "(No title)",
             str(note.word_count),
             ", ".join(f"#{tag}" for tag in note.tags) if note.tags else ""
@@ -115,23 +108,24 @@ def display_orphan_notes(notes: List[Note]) -> None:
 
 
 def display_tags(tag_counts: Dict[str, int]) -> None:
-    """Display tag usage statistics."""
-    if not tag_counts:
-        _echo("No tags found.")
-        return
-
-    headers = ["Tag", "Count"]
-    rows = [[f"#{tag}", str(count)] for tag, count in sorted(tag_counts.items())]
-    display_table(rows, headers, "Tags")
+    """Display tag counts in a table format."""
+    rows = []
+    for tag, count in sorted(tag_counts.items()):
+        rows.append([f"#{tag}", str(count)])
+    display_table(rows, ["Tag", "Count"], title="Tags")
 
 
 def display_notes_by_tag(notes: List[Note], tag: str) -> None:
-    """Display notes with a specific tag."""
-    if not notes:
-        _echo(f"No notes found with tag '#{tag}'")
-        return
-
-    display_notes(notes, f"Notes with tag '#{tag}'")
+    """Display notes that have a specific tag."""
+    rows = []
+    for note in notes:
+        rows.append([
+            str(note.path),
+            note.title or "(No title)",
+            str(note.word_count),
+            ", ".join(f"#{t}" for t in sorted(note.tags)) if note.tags else ""
+        ])
+    display_table(rows, ["Path", "Title", "Words", "Tags"], title=f"Notes with tag #{tag}")
 
 
 def display_search_results(notes: List[Note]) -> None:
@@ -203,3 +197,18 @@ def display_export_result(result: str) -> None:
         display_success(result)
     else:
         display_error("Export operation failed")
+
+
+def display_word_cloud(word_stats: List[Tuple[str, int, float]], message: str = None) -> None:
+    """Display word cloud statistics in a table format."""
+    if not word_stats and message:
+        display_table([], ["Word", "Count", "Percentage"], title=message)
+        return
+    
+    rows = [
+        [word, str(count), f"{percentage:.1f}%"]
+        for word, count, percentage in word_stats
+    ]
+    
+    display_table(rows, ["Word", "Count", "Percentage"], 
+                 title="Word Cloud (min length: 3, min count: 2)")

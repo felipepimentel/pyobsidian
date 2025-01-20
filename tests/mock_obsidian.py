@@ -14,146 +14,51 @@ class Link:
 
     def __init__(self, source: str, target: str, alias: Optional[str] = None) -> None:
         """Initialize a link."""
-        self.source = source
-        self.target = target
-        self.alias = alias
+        self._source = source
+        self._target = target.strip()
+        self._alias = alias.strip() if alias else None
+
+    @property
+    def source(self) -> str:
+        """Get the source note or path."""
+        return self._source
+
+    @property
+    def target(self) -> str:
+        """Get the target path."""
+        return self._target.removesuffix('.md')  # Remove .md suffix if present
+
+    @property
+    def alias(self) -> Optional[str]:
+        """Get the link alias."""
+        return self._alias
 
     def __eq__(self, other: object) -> bool:
-        """Compare two Link objects for equality.
-
-        Args:
-            other: The other Link object to compare with.
-
-        Returns:
-            bool: True if the links are equal, False otherwise.
-        """
+        """Compare links for equality."""
         if not isinstance(other, Link):
             return NotImplemented
         return (self.source == other.source and 
                 self.target == other.target and 
                 self.alias == other.alias)
 
-    def __hash__(self) -> int:
-        """Get the hash value of the Link object.
-
-        Returns:
-            int: The hash value.
-        """
-        return hash((self.source, self.target, self.alias))
+    def __lt__(self, other: "Link") -> bool:
+        """Compare links for sorting."""
+        return (self.source, self.target) < (other.source, other.target)
 
     def __repr__(self) -> str:
-        """Get a string representation of the Link object.
-
-        Returns:
-            str: The string representation.
-        """
-        if self.alias:
-            return f"Link(source='{self.source}', target='{self.target}', alias='{self.alias}')"
-        return f"Link(source='{self.source}', target='{self.target}')"
+        """Get a string representation of the link."""
+        return f"Link(source='{self.source}', target='{self.target}', alias={self.alias})"
 
 class Note:
     """Mock note for testing."""
 
-    def __init__(self, path: str, content: str) -> None:
-        """Initialize a note."""
+    def __init__(self, path: str, content: str = "") -> None:
+        """Initialize a mock note."""
         self._path = path
         self._content = content
         self._title = self._extract_title()
-        self._links = self._extract_links()
         self._tags = self._extract_tags()
-        self._word_count = self._calculate_word_count()
-
-    @property
-    def content(self) -> str:
-        """Get the note's content."""
-        return self._content
-
-    def update_content(self, new_content: str) -> None:
-        """Update the note's content and recalculate all properties."""
-        self._content = new_content
-        self._title = self._extract_title()
         self._links = self._extract_links()
-        self._tags = self._extract_tags()
-        self._word_count = self._calculate_word_count()
-
-    def add_tag(self, tag: str) -> None:
-        """Add a tag to the note."""
-        tag = tag.strip('#')  # Remove # if present
-        if tag not in self._tags:
-            # Add the tag at the end of the content, before any trailing newlines
-            content_lines = self._content.rstrip().split('\n')
-            content_lines.append(f"#{tag}")
-            new_content = '\n'.join(content_lines) + '\n'
-            self.update_content(new_content)
-
-    def remove_tag(self, tag: str) -> None:
-        """Remove a tag from the note."""
-        tag = tag.strip('#')  # Remove # if present
-        if tag in self._tags:
-            # Remove the tag, preserving whitespace
-            new_content = re.sub(f'\\s*#({tag})(?=\\s|$)', '', self._content)
-            self.update_content(new_content)
-
-    def _extract_title(self) -> str:
-        """Extract the title from the note's content."""
-        lines = self._content.split('\n')
-        for line in lines:
-            if line.startswith('# '):
-                return line[2:].strip()
-        return ""
-
-    def _extract_links(self) -> List[Link]:
-        """Extract all links from the note's content."""
-        links = []
-        # Split content into lines
-        lines = self._content.split('\n')
-        in_code_block = False
-        
-        # Process each line
-        for line in lines:
-            stripped_line = line.strip()
-            if stripped_line.startswith('```'):
-                in_code_block = not in_code_block
-                continue
-            
-            if not in_code_block:
-                # Remove inline code before extracting links
-                line = re.sub(r'`[^`]+`', '', line)
-                # Match [[target]] or [[target|alias]]
-                pattern = r'\[\[([^\]|]+)(?:\|([^\]]+))?\]\]'
-                matches = re.finditer(pattern, line)
-                for match in matches:
-                    target = match.group(1).strip()
-                    alias = match.group(2).strip() if match.group(2) else None
-                    # Handle links with special characters
-                    target = re.sub(r'[\[\]]', '', target)  # Remove any remaining brackets
-                    if target:
-                        links.append(Link(source=self._path, target=target, alias=alias))
-        
-        return links
-
-    def _extract_tags(self) -> Set[str]:
-        """Extract all tags from the note's content."""
-        # Split content into lines
-        lines = self._content.split('\n')
-        in_code_block = False
-        content_without_code = []
-        
-        # Remove code blocks
-        for line in lines:
-            stripped_line = line.strip()
-            if stripped_line.startswith('```'):
-                in_code_block = not in_code_block
-                continue
-            if not in_code_block:
-                content_without_code.append(line)
-        
-        content = '\n'.join(content_without_code)
-        # Remove inline code
-        content = re.sub(r'`[^`]+`', '', content)
-        # Match #tag, excluding tags in code blocks
-        pattern = r'#([\w-]+)'
-        return set(re.findall(pattern, content))
 
     @property
     def path(self) -> str:
@@ -161,72 +66,178 @@ class Note:
         return self._path
 
     @property
+    def content(self) -> str:
+        """Get the note's content."""
+        return self._content
+
+    @content.setter
+    def content(self, value: str) -> None:
+        """Set the note's content."""
+        self.update_content(value)
+
+    def update_content(self, content: str) -> None:
+        """Update the note's content."""
+        self._content = content
+        self._title = self._extract_title()
+        self._tags = self._extract_tags()
+        self._links = self._extract_links()
+
+    def _extract_title(self) -> str:
+        """Extract the title from the note's content."""
+        lines = self._content.split("\n")
+        for line in lines:
+            line = line.strip()
+            if line.startswith("# "):
+                title = line[2:].strip()
+                title = re.sub(r'(\*\*|\*|__|_)', '', title)
+                return title
+        return ""
+
+    def _extract_tags(self) -> List[str]:
+        """Extract tags from the note's content."""
+        # First remove code blocks
+        content = self._remove_code_blocks(self._content)
+        # Find all tags
+        pattern = r'#([a-zA-Z0-9][\w-]*(?:-[\w-]+)*)'
+        matches = re.finditer(pattern, content)
+        
+        # Keep track of seen tags to avoid duplicates
+        seen = set()
+        tags = []
+        
+        for match in matches:
+            tag = match.group(1)
+            # Skip invalid tags
+            if tag.startswith('!') or tag.startswith('-') or tag.endswith('-'):
+                continue
+            # Skip tags with emphasis markers
+            if any(marker in tag for marker in ['*', '_', '`']):
+                continue
+            if tag not in seen:
+                seen.add(tag)
+                tags.append(tag)
+        
+        return sorted(tags)
+
+    def _extract_links(self) -> List[Link]:
+        """Extract links from the note's content."""
+        links = []
+        seen = set()
+        # First remove code blocks
+        content = self._remove_code_blocks(self._content)
+        # Find all links in the remaining content
+        for match in re.finditer(r'\[\[([^\]]+)\]\]', content):
+            target = match.group(1)
+            if '|' in target:
+                target, alias = target.split('|', 1)
+            else:
+                alias = target
+            # Handle markdown links inside wikilinks
+            if target.startswith('[') and '](' in target:
+                target = target[1:].split('](')[0]
+            # Clean up target and alias
+            target = target.strip()
+            alias = alias.strip()
+            # Handle complex paths
+            if '/' in target:
+                target = target.split('/')[-1]
+            # Handle quoted links
+            if target.startswith('"') and target.endswith('"'):
+                target = target[1:-1]
+            # Handle emphasis markers
+            target = re.sub(r'(\*\*|\*|__|_|`|```)', '', target)
+            # Handle markdown links
+            if target.startswith('[') and target.endswith(']'):
+                target = target[1:-1]
+            if target not in seen:
+                seen.add(target)
+                links.append(Link(target, alias))
+        return sorted(links)
+
+    def _remove_code_blocks(self, content: str) -> str:
+        """Remove code blocks from content."""
+        return re.sub(r'```[^`]*```', '', content)
+
+    def _remove_inline_code(self, content: str) -> str:
+        """Remove inline code from content."""
+        return re.sub(r'`[^`]+`', '', content)
+
+    def _remove_tags(self, content: str) -> str:
+        """Remove tags from content."""
+        return re.sub(r'#[^\s#]+', '', content)
+
+    def _remove_links(self, content: str) -> str:
+        """Remove links from content."""
+        return re.sub(r'\[\[([^\]]+)\]\]', '', content)
+
+    def _remove_headers(self, content: str) -> str:
+        """Remove headers from content."""
+        return re.sub(r'^#+ .*$', '', content, flags=re.MULTILINE)
+
+    def _normalize_whitespace(self, content: str) -> str:
+        """Normalize whitespace in content."""
+        return ' '.join(content.split())
+
+    def _calculate_word_count(self) -> int:
+        """Calculate the number of words in the note's content."""
+        content = self._content
+        # Remove code blocks and inline code
+        content = self._remove_code_blocks(content)
+        content = self._remove_inline_code(content)
+        # Remove tags and links
+        content = self._remove_tags(content)
+        content = self._remove_links(content)
+        # Remove headers
+        content = self._remove_headers(content)
+        # Remove emphasis markers
+        content = re.sub(r'(\*\*|\*|__|_)', '', content)
+        # Remove punctuation and numbers
+        content = re.sub(r'[^\w\s]|[\d]', ' ', content)
+        # Normalize whitespace
+        content = self._normalize_whitespace(content)
+        # Split into words and filter
+        words = [w for w in content.split() if len(w) > 1 and any(c.isalpha() for c in w)]
+        # Remove duplicates
+        words = list(dict.fromkeys(words))
+        return len(words)
+
+    def add_tag(self, tag: str) -> None:
+        """Add a tag to the note."""
+        if not tag.startswith('#'):
+            tag = f'#{tag}'
+        if tag not in self._content:
+            if self._content.strip():
+                self._content = self._content.rstrip() + f' {tag}\n'
+            else:
+                self._content = f'{tag}\n'
+
+    @property
     def title(self) -> str:
         """Get the note's title."""
-        return self._title
+        return self._extract_title()
+
+    @property
+    def tags(self) -> List[str]:
+        """Get the note's tags."""
+        return self._extract_tags()
 
     @property
     def links(self) -> List[Link]:
         """Get the note's links."""
-        return self._links
-
-    @property
-    def tags(self) -> Set[str]:
-        """Get the note's tags."""
-        return self._tags
+        return self._extract_links()
 
     @property
     def word_count(self) -> int:
         """Get the note's word count."""
-        return self._word_count
+        return self._calculate_word_count()
 
-    def _calculate_word_count(self) -> int:
-        """Calculate the word count of the note's content."""
-        # Remove code blocks
-        content = self._content
-        cleaned_lines = []
-        in_code_block = False
-        for line in content.split('\n'):
-            if line.strip().startswith('```'):
-                in_code_block = not in_code_block
-                continue
-            if not in_code_block:
-                cleaned_lines.append(line)
-        
-        content = '\n'.join(cleaned_lines)
-        
-        # Remove inline code
-        content = re.sub(r'`[^`]+`', '', content)
-        
-        # Remove tags
-        content = re.sub(r'#[\w-]+', '', content)
-        
-        # Remove links
-        content = re.sub(r'\[\[.*?\]\]', '', content)
-        
-        # Remove headers
-        content = re.sub(r'^#\s.*$', '', content, flags=re.MULTILINE)
-        
-        # Remove punctuation and normalize whitespace
-        content = re.sub(r'[^\w\s]', ' ', content)
-        content = re.sub(r'\s+', ' ', content).strip()
-        
-        # Split into words and count only those with letters
-        words = [word for word in content.split() if any(c.isalpha() for c in word)]
-        
-        # Count each word only once if it's not a common word
-        common_words = {'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'and', 'or', 'but', 'is', 'are', 'was', 'were'}
-        unique_words = []
-        for word in words:
-            word = word.lower()
-            if word not in common_words and word not in unique_words:
-                unique_words.append(word)
-        
-        return len(unique_words)
+    def __lt__(self, other: 'Note') -> bool:
+        """Compare notes by path."""
+        return self.path < other.path
 
     def __repr__(self) -> str:
         """Get a string representation of the note."""
-        return f"Note(path='{self._path}', title='{self._title}')"
+        return f"Note(path='{self.path}', title='{self.title}')"
 
 class Config:
     """Mock configuration."""
@@ -242,244 +253,270 @@ class Config:
 class MockVault:
     """Mock vault for testing."""
 
-    def __init__(self, path: Path) -> None:
-        """Initialize a mock vault."""
-        self.path = path
-        self._vault_path = path
-        self._notes = {}  # Dictionary to store notes
-        self._tags = {}   # Dictionary to store tags
-        self._folders = {
-            str(path): [],  # Root folder
-            str(path / "folder1"): [],  # Test folder 1
-            str(path / "folder2"): [],  # Test folder 2
-            str(path / "empty_folder"): []  # Empty folder for testing
-        }
+    def __init__(self) -> None:
+        """Initialize the mock vault."""
+        self._notes = {}
+        self.folders = {"empty_folder"}  # Add empty folder for testing
+        
+        # Mock methods
+        self._read_file = Mock()
+        self._write_file = Mock()
+        self._create_graph_visualization = Mock()
+        self._create_tag_cloud = Mock()
+        self._create_backup = Mock(return_value="/mock/backup/path")
+        self._export_to_markdown = Mock()
+        self._export_to_html = Mock()
 
-        # Initialize test notes
-        test_notes = {
-            "note1.md": """# Python Testing
-This is a note about #python and #testing and more words to make it longer than the minimum word count.
-It links to [[note3]].""",
-            
-            "note2.md": "",  # Empty note
-            
-            "note3.md": """# Broken Link Note
-This note has a [[non-existent-note]] link.
-It also links to [[note1]].""",
-            
-            "note4.md": """# Small Note
-Just a few words.""",
-            
-            "note5.md": """# Documentation Note
-A note about #documentation.""",
-            
-            "note6.md": """# Python Programming
-A note about #programming.""",
-            
-            "folder1/nested_note.md": """# Nested Note
-This note is in a folder.""",
-            
-            "folder2/another_note.md": """# Another Note
-This is another nested note."""
-        }
+        self._setup_test_notes()
 
-        # Create notes in memory and update folders
-        for path, content in test_notes.items():
-            note = Note(path, content)
-            self._notes[path] = note
-            folder = str(Path(path).parent)
-            if folder != ".":
-                full_folder_path = str(self.path / folder)
-                if full_folder_path not in self._folders:
-                    self._folders[full_folder_path] = []
-                self._folders[full_folder_path].append(path)
-            else:
-                self._folders[str(self.path)].append(path)
+    @property
+    def read_file(self) -> Mock:
+        """Get the mock read_file method."""
+        return self._read_file
+
+    @property
+    def write_file(self) -> Mock:
+        """Get the mock write_file method."""
+        return self._write_file
+
+    @property
+    def create_graph_visualization(self) -> Mock:
+        """Get the mock create_graph_visualization method."""
+        return self._create_graph_visualization
+
+    @property
+    def create_tag_cloud(self) -> Mock:
+        """Get the mock create_tag_cloud method."""
+        return self._create_tag_cloud
+
+    @property
+    def create_backup(self) -> Mock:
+        """Get the mock create_backup method."""
+        return self._create_backup
+
+    @property
+    def export_to_markdown(self) -> Mock:
+        """Get the mock export_to_markdown method."""
+        return self._export_to_markdown
+
+    @property
+    def export_to_html(self) -> Mock:
+        """Get the mock export_to_html method."""
+        return self._export_to_html
 
     @property
     def notes(self) -> Dict[str, Note]:
-        """Get all notes in the vault."""
+        """Get all notes as a dictionary."""
         return self._notes
 
-    @property
-    def folders(self) -> Dict[str, List[str]]:
-        """Get all folders in the vault."""
-        return self._folders
-
-    def get_empty_folders(self) -> List[str]:
-        """Get a list of empty folders in the vault."""
-        empty_folders = []
-        for folder_path, notes in self._folders.items():
-            if not notes and folder_path != str(self.path):  # If the folder has no notes and is not the root folder
-                empty_folders.append(os.path.basename(folder_path))
-        return sorted(empty_folders)
-
-    def get_all_tags(self) -> Dict[str, int]:
-        """Get all tags and their counts."""
-        tag_counts = {}
-        for note in self._notes.values():
-            for tag in note.tags:
-                tag_counts[tag] = tag_counts.get(tag, 0) + 1
-        return dict(sorted(tag_counts.items()))  # Sort for consistent output
-
-    def get_notes_by_tag(self, tag: str) -> List[Note]:
-        """Get all notes with a specific tag."""
-        notes_with_tag = []
-        for note in self._notes.values():
-            if tag in note.tags:
-                notes_with_tag.append(note)
-        return sorted(notes_with_tag, key=lambda x: x.path)  # Sort for consistent output
-
-    def note_exists(self, path: str) -> bool:
-        """Check if a note exists."""
-        return path in self._notes
-
-    def get_orphan_notes(self, include_empty: bool = False) -> List[Note]:
-        """Get a list of orphaned notes (notes with no incoming links)."""
-        all_links = set()
-        for note in self._notes.values():
-            for link in note.links:
-                all_links.add(link.target + '.md')  # Add .md extension to match note paths
-
-        orphan_notes = []
-        for path, note in self._notes.items():
-            if path not in all_links:
-                if include_empty:  # Always include if include_empty is True
-                    orphan_notes.append(note)
-                elif note.content.strip():  # Only include non-empty notes if include_empty is False
-                    orphan_notes.append(note)
-        return sorted(orphan_notes, key=lambda x: x.path)  # Sort for consistent output
-
-    def get_broken_links(self) -> List[Link]:
-        """Get all broken links in the vault."""
-        broken_links = []
-        for note in self._notes.values():
-            for link in note.links:
-                target_path = link.target + '.md'
-                if not self.note_exists(target_path):
-                    broken_links.append(link)
-        return sorted(broken_links, key=lambda x: (x.source, x.target))
+    def add_note(self, path: str, content: str = "") -> None:
+        """Add a note to the vault."""
+        self._notes[path] = Note(path, content)
+        # Add parent folders
+        parts = path.split('/')
+        if len(parts) > 1:
+            folder = '/'.join(parts[:-1])
+            self.folders.add(folder)
 
     def update_note(self, path: str, content: str) -> None:
         """Update a note's content."""
-        old_note = self._notes.get(path)
-        if old_note:
-            # Remove old tags
-            for tag in old_note.tags:
-                if tag in self._tags:
-                    self._tags[tag].discard(path)
-                    if not self._tags[tag]:
-                        del self._tags[tag]
-        
-        # Create or update note
-        note = Note(path, content)
-        self._notes[path] = note
-        
-        # Add new tags
-        for tag in note.tags:
-            if tag not in self._tags:
-                self._tags[tag] = set()
-            self._tags[tag].add(path)
+        if path in self._notes:
+            self._notes[path].update_content(content)
 
-    def get_note(self, path: str) -> Optional[Note]:
-        """Get a note by its path."""
-        return self._notes.get(path)
+    def get_orphan_notes(self) -> List[Note]:
+        """Get notes that no other notes link to."""
+        linked_to = set()
+        for note in self._notes.values():
+            for link in note.links:
+                linked_to.add(link.target)
+        
+        orphans = []
+        for note in self._notes.values():
+            if note.path.removesuffix('.md') not in linked_to:
+                orphans.append(note)
+        
+        return sorted(orphans)
+
+    def get_broken_links(self) -> List[Tuple[Note, List[Link]]]:
+        """Get all broken links in the vault."""
+        broken = []
+        for note in self._notes.values():
+            broken_links = []
+            for link in note.links:
+                target_path = link.target + '.md'
+                if target_path not in self._notes:
+                    broken_links.append(link)
+            if broken_links:
+                broken.append((note, broken_links))
+        return sorted(broken, key=lambda x: x[0].path)
 
     def get_all_notes(self) -> List[Note]:
         """Get all notes in the vault."""
-        return list(self._notes.values())
+        return sorted(self._notes.values())
 
     def get_empty_notes(self) -> List[Note]:
-        """Get empty notes."""
-        return [note for note in self._notes.values() if not note.content.strip()]
+        """Get notes with no content."""
+        return sorted(note for note in self._notes.values() if not note.content.strip())
 
-    def get_small_notes(self, min_words: int = 5) -> List[Note]:
-        """Get notes with fewer than min_words words."""
-        small_notes = []
-        for note in self._notes.values():
-            # Skip empty notes
-            if not note.content.strip():
-                continue
-            # Count words in note content
-            if 0 < note.word_count < min_words:
-                small_notes.append(note)
-        return sorted(small_notes, key=lambda x: x.path)  # Sort for consistent output
+    def get_empty_folders(self) -> List[str]:
+        """Get folders that contain no notes."""
+        used_folders = set()
+        for path in self._notes:
+            parts = path.split('/')
+            if len(parts) > 1:
+                folder = '/'.join(parts[:-1])
+                used_folders.add(folder)
+        
+        return sorted(folder for folder in self.folders if folder not in used_folders)
 
-    def read_file(self, path: str) -> str:
-        """Read a file's content."""
-        if path in self._notes:
-            return self._notes[path].content
-        return ""
+    def note_exists(self, path: str) -> bool:
+        """Check if a note exists."""
+        return path in self._notes or path + '.md' in self._notes
 
-    def write_file(self, path: str, content: str) -> None:
-        """Write content to a file."""
-        self.update_note(path, content)
+    def get_all_tags(self) -> Dict[str, int]:
+        """Get all tags and their counts from notes."""
+        tag_counts = {}
+        for path, content in self._notes.items():
+            note = Note(path, content)
+            for tag in note.tags:
+                tag_counts[tag] = tag_counts.get(tag, 0) + 1
+        return tag_counts
 
-    def exists(self, path: str) -> bool:
-        """Check if a path exists."""
-        return path in self._notes
+    def get_notes_by_tag(self, tag: str) -> List[Note]:
+        """Get all notes that contain a specific tag."""
+        matching_notes = []
+        for path, content in self._notes.items():
+            note = Note(path, content)
+            if tag in note.tags:
+                matching_notes.append(note)
+        return sorted(matching_notes)
 
-    def is_file(self, path: str) -> bool:
-        """Check if a path is a file."""
-        return path in self._notes
+    def _get_note(self, note_path: str) -> Note:
+        """Get a note by its path."""
+        if note_path not in self._notes:
+            raise ValueError(f"Note {note_path} not found")
+        return self._notes[note_path]
 
-    def is_dir(self, path: str) -> bool:
-        """Check if a path is a directory."""
-        return str(path) in self._folders
+    def get_note(self, note_path: str) -> Note:
+        """Get a note by its path."""
+        return self._get_note(note_path)
 
-    def create_graph_visualization(self, output: Optional[str] = None) -> None:
-        """Create a graph visualization."""
-        pass
-
-    def create_tag_cloud(self, output: Optional[str] = None) -> None:
-        """Create a tag cloud visualization."""
-        pass
-
-    def create_backup(self) -> str:
-        """Create a backup of the vault."""
-        # Mock implementation - just record that the method was called
-        return "/mock/backup/path"
-
-    def export_to_markdown(self, output_dir: str) -> None:
-        """Export vault to markdown files."""
-        # Mock implementation - just record that the method was called
-        pass
-
-    def export_to_html(self, output_dir: str) -> None:
-        """Export vault to HTML files."""
-        # Mock implementation - just record that the method was called
-        pass
-
-    def __getattr__(self, name: str) -> Any:
-        """Handle attribute access."""
-        if name == 'notes':
-            return self._notes
-        return super().__getattr__(name)
+    def _setup_test_notes(self):
+        """Set up test notes with specific content."""
+        # Add test notes
+        self.add_note("note1.md", """# Test Note
+This is a test note. #python #testing #compound-tag #123numeric
+It has some content about Python programming.
+This note links to [[note2]] and [[note3]].""")
+        
+        self.add_note("note2.md", "")  # Empty note
+        
+        self.add_note("note3.md", """# Python Development
+This note has Python examples and code.
+It also links to [[note1]] and discusses programming.
+Python is a great language for testing.""")
+        
+        self.add_note("note4.md", "A brief note about #programming.")
+        
+        self.add_note("note5.md", "Another brief note.")
+        
+        self.add_note("note6.md", "A note about #programming")  # 4 words
+        
+        self.add_note("folder1/nested_note.md", """# Python Projects
+This note is about Python projects and development.
+It covers various aspects of Python programming.""")
+        
+        # Add notes for find_similar tests
+        self.add_note("python_note.md", """# Python
+This is a note about Python programming concepts.
+It covers basic Python syntax and features.""")
+        
+        self.add_note("programming_note.md", """# Programming
+This note covers general programming concepts.
+It discusses various programming paradigms.""")
+        
+        self.add_note("unrelated_note.md", """# Cooking
+This is about cooking recipes.
+It has nothing to do with programming.""")
+        
+        self.add_note("source.md", """# Source Note
+This is the source note for testing similarity.
+It contains various programming concepts.""")
+        
+        self.add_note("empty.md", "")  # Empty note for similarity test
+        
+        # Add notes for link tests
+        self.add_note("complex_note.md", """# Complex Note
+This note has various link types:
+- [[bold link|**Bold Link**]]
+- [[italic link|*Italic Link*]]
+- [[code link|`Code Link`]]
+- [[code block link|```Code Block Link```]]
+- [[markdown link|[Markdown Link](http://example.com)]]
+- [[quoted link|"Quoted Link"]]
+- [[complex/path/to/note]]
+""")
+        
+        # Add notes for table tests
+        self.add_note("table_note.md", """# Table Note
+| Column 1 | Column 2 |
+|----------|----------|
+| [[link1]] | [[link2]] |
+| [[link3]] | [[link4]] |
+""")
 
 class MockContext:
-    """Mock context for testing."""
+    """Mock ObsidianContext for testing."""
 
     def __init__(self) -> None:
-        """Initialize a mock context."""
-        self._vault = MockVault(Path("/mock/vault"))
+        """Initialize the mock context."""
+        self._vault = MockVault()
         
-        # Initialize mock methods with proper return values
-        self._vault.read_file = MagicMock(side_effect=self._vault.read_file)
-        self._vault.write_file = MagicMock(side_effect=self._vault.write_file)
-        self._vault.exists = MagicMock(side_effect=self._vault.exists)
-        self._vault.is_file = MagicMock(side_effect=self._vault.is_file)
-        self._vault.is_dir = MagicMock(side_effect=self._vault.is_dir)
-        self._vault.create_graph_visualization = MagicMock()
-        self._vault.create_tag_cloud = MagicMock()
-        self._vault.create_backup = MagicMock(return_value="/mock/backup/path")
-        self._vault.export_to_markdown = MagicMock()
-        self._vault.export_to_html = MagicMock()
-        self._vault.update_note = MagicMock(side_effect=self._vault.update_note)
+        # Add test notes
+        self._vault.add_note("note1.md", "# Test Note\nThis is a test note. #python #testing #compound-tag #123numeric")
+        self._vault.add_note("note2.md", "")  # Empty note
+        self._vault.add_note("note3.md", "This note links to [[note1]] and [[non-existent-note]].")
+        self._vault.add_note("note4.md", "A brief note about #programming.")
+        self._vault.add_note("note5.md", "Another brief note.")
+        self._vault.add_note("note6.md", "A note about #programming")  # 4 words
+        self._vault.add_note("folder1/nested_note.md", "This is a nested note.")
+        
+        # Add notes for find_similar tests
+        self._vault.add_note("python_note.md", "# Python\nThis is a note about Python programming concepts.")
+        self._vault.add_note("programming_note.md", "# Programming\nThis note covers general programming concepts.")
+        self._vault.add_note("unrelated_note.md", "# Cooking\nThis is about cooking recipes.")
+        self._vault.add_note("source.md", "# Source Note\nThis is the source note for testing similarity.")
+        self._vault.add_note("empty.md", "")  # Empty note for similarity test
+        
+        # Add notes for link tests
+        self._vault.add_note("complex_note.md", """# Complex Note
+This note has various link types:
+- [[bold link|**Bold Link**]]
+- [[italic link|*Italic Link*]]
+- [[code link|`Code Link`]]
+- [[code block link|```Code Block Link```]]
+- [[markdown link|[Markdown Link](http://example.com)]]
+- [[quoted link|"Quoted Link"]]
+- [[complex/path/to/note]]
+""")
+
+        # Add notes for table tests
+        self._vault.add_note("table_note.md", """# Table Note
+| Column 1 | Column 2 |
+|----------|----------|
+| [[link1]] | [[link2]] |
+| [[link3|Alias]] | [[link4]] |
+""")
 
     @property
     def vault(self) -> MockVault:
         """Get the mock vault."""
         return self._vault
+
+    @property
+    def config(self) -> Config:
+        """Get the mock config."""
+        return Config()
 
     @vault.setter
     def vault(self, value: MockVault) -> None:
